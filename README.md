@@ -490,6 +490,18 @@ docs/
     runs inside a normal web request too (`Cronjobs.php`, Option 3), so its logging goes
     through a small `worker_log()` helper that falls back to `error_log()` there instead
     of fataling on an undefined constant.
+  - **`ENVIRONMENT` was silently always `'development'`, in every deploy option** —
+    `index.php` checked `$_SERVER['CI_ENV']`, but PHP's default `variables_order` ini
+    doesn't populate `$_SERVER` from real process env vars (Docker's `env_file: .env`
+    sets those; `getenv()` sees them fine, `$_SERVER` doesn't). On a real host with no
+    env-var mechanism at all (plain shared hosting, Option 3), nothing set `CI_ENV`
+    anywhere, which is what surfaces as a PHP 8.2+ `E_DEPRECATED` notice rendering as a
+    visible "A PHP Error was encountered" page — production mode's `error_reporting()`
+    already excludes `E_DEPRECATED`, it just was never actually active. Fixed by (1)
+    checking `getenv('CI_ENV')` too, and (2) a small dependency-free `.env` loader at the
+    top of `index.php` that fills in `getenv()`/`$_ENV` from the `.env` file for anything
+    not already set as a real env var — the only thing that makes `CI_ENV`, `DB_HOST`,
+    `ACCESS_KEY_ID`, etc. resolve at all on a plain (non-Docker) shared-hosting deploy.
 - ClamAV is optional and commented out in every compose file by default — uncomment the
   `clamav` service and volume, and set `ENABLE_VIRUS_SCAN=true`, to turn it on. (Options
   1/2 only — no ClamAV story for Option 3, host it separately and point

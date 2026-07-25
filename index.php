@@ -53,7 +53,50 @@
  *
  * NOTE: If you change these, also change the error_reporting() code below
  */
-	define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development');
+
+	// Minimal .env loader — only fills in a name if it isn't already a real
+	// process env var (Docker's `env_file: .env` already sets those; this is
+	// purely the fallback for a plain shared-hosting deploy with no other
+	// mechanism to get .env into getenv()/$_ENV at all). Every
+	// application/config/*.php getenv() call (DB_HOST, ACCESS_KEY_ID, ...)
+	// depends on this the same way ENVIRONMENT below does.
+	$dotenv_path = __DIR__.'/.env';
+	if (is_readable($dotenv_path))
+	{
+		foreach (file($dotenv_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $dotenv_line)
+		{
+			$dotenv_line = trim($dotenv_line);
+			if ($dotenv_line === '' OR $dotenv_line[0] === '#' OR strpos($dotenv_line, '=') === FALSE)
+			{
+				continue;
+			}
+
+			list($dotenv_name, $dotenv_value) = explode('=', $dotenv_line, 2);
+			$dotenv_name = trim($dotenv_name);
+			$dotenv_value = trim($dotenv_value);
+			if (strlen($dotenv_value) > 1
+				&& (($dotenv_value[0] === '"' && substr($dotenv_value, -1) === '"')
+					OR ($dotenv_value[0] === "'" && substr($dotenv_value, -1) === "'")))
+			{
+				$dotenv_value = substr($dotenv_value, 1, -1);
+			}
+
+			if ($dotenv_name !== '' && getenv($dotenv_name) === FALSE)
+			{
+				putenv($dotenv_name.'='.$dotenv_value);
+				$_ENV[$dotenv_name] = $dotenv_value;
+			}
+		}
+		unset($dotenv_path, $dotenv_line, $dotenv_name, $dotenv_value);
+	}
+
+	// $_SERVER['CI_ENV'] is checked first for back-compat, but nothing in this
+	// project's Docker setup (nor plain Apache/shared hosting) actually sets
+	// that — PHP's default `variables_order` ini doesn't expose real process
+	// env vars in $_SERVER. getenv() does regardless of that setting, so it's
+	// the one that actually reflects .env's CI_ENV=production in every deploy
+	// option (Docker's env_file, or the loader immediately above).
+	define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : (getenv('CI_ENV') ?: 'development'));
 
 /*
  *---------------------------------------------------------------

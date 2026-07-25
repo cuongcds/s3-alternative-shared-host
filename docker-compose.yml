@@ -1,0 +1,57 @@
+# MySQL and Redis are NOT defined here — they run as shared, standalone
+# stacks in ../services/mysql and ../services/redis (see their READMEs).
+# Start those first:
+#   (cd ../services/mysql && docker compose up -d)
+#   (cd ../services/redis && docker compose up -d)
+# app/worker reach them via host.docker.internal using DB_HOST/REDIS_HOST
+# from .env (see .env.example).
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./:/var/www/html:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    env_file: .env
+    volumes:
+      - object_data:/data
+      - ./application:/var/www/html/application
+      - ./cli:/var/www/html/cli
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+    env_file: .env
+    volumes:
+      - object_data:/data
+      - ./application:/var/www/html/application
+      - ./cli:/var/www/html/cli
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # Optional virus scanning for the backend-upload pipeline (usecase 2) and
+  # the worker's async scan (usecase 3). Disabled by default: uncomment this
+  # service (and set ENABLE_VIRUS_SCAN=true in .env) to turn it on.
+  # clamav:
+  #   image: clamav/clamav:stable
+  #   volumes:
+  #     - clamav_data:/var/lib/clamav
+  #   restart: unless-stopped
+
+volumes:
+  object_data:
+  # clamav_data:

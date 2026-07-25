@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Self-hosted icon font (no CDN) — see docs/plans_v2.md section 9. */
+@font-face {
+  font-family: 'Material Icons';
+  font-style: normal;
+  font-weight: 400;
+  src: url('fonts/material-icons.woff2') format('woff2');
+}
+
+.material-icons {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Sidebar collapse/expand (mục 9) — plain selectors instead of utility
+   classes because JS toggles a single class on #admin-sidebar rather than
+   swapping many Tailwind classes per element. */
+#admin-sidebar {
+  width: 16rem;
+}
+#admin-sidebar.collapsed {
+  width: 4.5rem;
+}
+#admin-sidebar.collapsed .sidebar-label,
+#admin-sidebar.collapsed .sidebar-email {
+  display: none;
+}
+#admin-sidebar.collapsed nav a,
+#admin-sidebar.collapsed .sidebar-footer form button {
+  justify-content: center;
+}

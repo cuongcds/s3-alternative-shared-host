@@ -1,0 +1,23 @@
+# For deploy option 3 (shared hosting, no Docker) — the only Apache config
+# available on shared hosting is .htaccess, not the vhost. Docker options 1/2
+# put the equivalent of this in docker/nginx/default.conf and
+# docker/apache/000-default.conf; keep the front-controller rule and the
+# Authorization-header fix in sync with those if either ever changes.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Apache does NOT put the Authorization header into $_SERVER by default
+    # (it's reserved for Apache's own auth modules) — every signed request
+    # (Sigv4_signer / Aws_sigv4_signer both read
+    # $_SERVER['HTTP_AUTHORIZATION']) would otherwise 403 with
+    # "MissingAuthorizationHeader" even though the client did send it.
+    RewriteCond %{HTTP:Authorization} ^(.*)
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+
+    # Front-controller routing: CodeIgniter's index_page is '' (clean URLs),
+    # so every request that isn't a real file/dir on disk goes to index.php.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>

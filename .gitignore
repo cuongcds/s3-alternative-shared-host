@@ -1,0 +1,6 @@
+.env
+
+# Deploy option 3 (shared hosting) object storage — see storage/.htaccess for
+# why this is web-inaccessible; contents shouldn't be committed either way.
+storage/private/*
+!storage/private/.gitkeep

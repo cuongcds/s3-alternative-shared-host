@@ -1,0 +1,7 @@
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+SHELL=/bin/sh
+
+# Drains the Redis event queue every minute — see cli/worker_cron.php.
+# stdout/stderr redirected to the container's PID 1 so `docker logs` shows it
+# (cron jobs otherwise run detached from it).
+* * * * * root . /etc/container_env.sh && cd /var/www/html && php cli/worker_cron.php >> /proc/1/fd/1 2>> /proc/1/fd/2

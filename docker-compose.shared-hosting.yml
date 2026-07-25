@@ -1,0 +1,46 @@
+# Deploy option 3 simulation: shared hosting — no Docker on the real target
+# (you'd just copy the source over FTP/cPanel File Manager), Apache with NO
+# custom entrypoint/image tricks (real shared hosts give you no hook to run
+# anything on boot — schema import and .env are done manually, see README
+# "Option 3: deploying to real shared hosting"), and a cron container that
+# ONLY runs `wget` against an HTTP endpoint — cPanel-style cron can't run an
+# arbitrary PHP CLI script or daemon. No Redis service on purpose: this
+# option doesn't have one available at all (see REDIS_HOST override below).
+#
+# Storage is a plain bind-mounted folder (./storage/private), NOT a Docker
+# volume — a real shared host has no "volume" concept, it's just a directory
+# inside your uploaded project. See storage/.htaccess for why it's blocked
+# from direct web access.
+#
+# Run with:
+#   docker compose -f docker-compose.shared-hosting.yml up -d --build
+# Then import db/schema.sql manually before the first request — nothing
+# does it automatically (see README).
+services:
+  apache-shared:
+    build:
+      context: .
+      dockerfile: docker/shared-hosting/apache/Dockerfile
+    env_file: .env
+    environment:
+      REDIS_HOST: ""
+      STORAGE_ROOT: /var/www/html/storage/private
+    ports:
+      - "8095:80"
+    volumes:
+      - ./storage/private:/var/www/html/storage/private
+      - ./application:/var/www/html/application
+      - ./cli:/var/www/html/cli
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  cron-wget:
+    build:
+      context: .
+      dockerfile: docker/shared-hosting/cron-wget/Dockerfile
+    environment:
+      CRON_SECRET: ${CRON_SECRET}
+    depends_on:
+      - apache-shared
+    restart: unless-stopped

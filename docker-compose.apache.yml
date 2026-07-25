@@ -1,0 +1,52 @@
+# Deploy option 2: Apache (mod_php) instead of nginx + PHP-FPM, and the
+# event-queue worker as a cron job instead of a long-running daemon — see
+# README.md "Deploy options". Same MySQL/Redis expectations as
+# docker-compose.yml (external, configured via .env).
+#
+# Run with:
+#   docker compose -f docker-compose.apache.yml up -d --build
+#
+# Don't run this alongside the default docker-compose.yml at the same time —
+# both default to the same Compose project name (the directory name) and
+# would collide on container/volume names. Pick one deploy option.
+services:
+  apache:
+    build:
+      context: .
+      dockerfile: docker/apache/Dockerfile
+    env_file: .env
+    ports:
+      - "8090:80"
+    volumes:
+      - object_data:/data
+      - ./application:/var/www/html/application
+      - ./cli:/var/www/html/cli
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  worker-cron:
+    build:
+      context: .
+      dockerfile: docker/worker-cron/Dockerfile
+    env_file: .env
+    volumes:
+      - object_data:/data
+      - ./application:/var/www/html/application
+      - ./cli:/var/www/html/cli
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # Optional virus scanning for the backend-upload pipeline (usecase 2) and
+  # the worker's async scan (usecase 3). Disabled by default: uncomment this
+  # service (and set ENABLE_VIRUS_SCAN=true in .env) to turn it on.
+  # clamav:
+  #   image: clamav/clamav:stable
+  #   volumes:
+  #     - clamav_data:/var/lib/clamav
+  #   restart: unless-stopped
+
+volumes:
+  object_data:
+  # clamav_data:

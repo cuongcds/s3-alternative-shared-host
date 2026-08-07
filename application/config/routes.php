@@ -69,6 +69,11 @@ $route['internal/uploads/(.+)'] = 'internal/upload/$1';
 // but still needs an explicit route or the catch-all below would swallow it.
 $route['cli_migrate/run'] = 'cli_migrate/run';
 
+// Browser-accessible admin-account creation for shared hosting with no
+// SSH/CLI access (see application/controllers/Setup.php) — gated by
+// SECRET_ACCESS_KEY, same trust level as every other privileged endpoint.
+$route['setup/create-admin'] = 'setup/create_admin';
+
 // Admin panel (docs/plans_v2.md) — session-based, entirely separate from the
 // S3 API auth above. Explicit routes needed because the catch-all matches
 // everything not previously matched.

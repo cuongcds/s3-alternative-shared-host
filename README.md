@@ -152,8 +152,38 @@ Shared hosts almost always give you a **cPanel "MySQL Databases"** page instead 
 MySQL root access — create a database + user there (cPanel usually prefixes both with
 your account name, e.g. `cpaneluser_opens3`), note the host/port it gives you (often
 just `localhost`), then open **phpMyAdmin** (also in cPanel) → select that database →
-**Import** tab → upload [`db/schema.sql`](db/schema.sql) directly. That's the entire
-migration step; nothing runs it for you automatically on this deploy option.
+**Import** tab → upload [`db/schema.sql`](db/schema.sql) directly. Nothing runs this for
+you automatically on this deploy option.
+
+If you want the [admin panel](#admin-panel) too, its two tables aren't in
+`db/schema.sql` (added later, via `application/migrations/` — see [Development
+notes](#development-notes)) — run this once in phpMyAdmin's **SQL** tab as well:
+
+```sql
+CREATE TABLE IF NOT EXISTS admins (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  last_login_at DATETIME NULL,
+  failed_login_attempts INT NOT NULL DEFAULT 0,
+  locked_until DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS ci_sessions (
+  id VARCHAR(128) NOT NULL,
+  ip_address VARCHAR(45) NOT NULL,
+  timestamp INT UNSIGNED NOT NULL DEFAULT 0,
+  data BLOB NOT NULL,
+  PRIMARY KEY (id),
+  KEY ci_sessions_timestamp (timestamp)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+Skipping this is why the admin panel would otherwise fail with **"Invalid or missing
+CSRF token"** on every login attempt: without `ci_sessions`, the session never actually
+persists between the login page and the submit, so the token never matches.
 
 ### 4. Configure `.env`
 
@@ -257,16 +287,32 @@ SigV4/OS3-HMAC auth — see [`docs/plans_v2.md`](docs/plans_v2.md) for the full 
 
 ### Create an admin account
 
-There's no signup form — seed (or reset the password of) an admin from the CLI:
+There's no signup form. Requires the `admins`/`ci_sessions` tables to already exist —
+created automatically on container startup for Options 1/2 (see [Setup](#setup) above),
+or manually via the SQL in [Option 3 step
+3](#3-create-the-database-and-import-the-schema) for real shared hosting.
+
+**With SSH/CLI access** (Options 1/2, or Option 3 if your host gives you a terminal) —
+seed or reset the password of an admin:
 
 ```bash
 docker compose exec app php cli/create_admin.php admin@example.com 'a-strong-password'
 # Apache option: docker compose -f docker-compose.apache.yml exec apache php cli/create_admin.php ...
 ```
 
-Idempotent by email (`ON DUPLICATE KEY UPDATE`) — re-run it any time to reset a
-forgotten password. Requires the DB migrations to have already run (they do
-automatically on container startup, see [Setup](#setup) above).
+**Without SSH/CLI access** (typical cPanel-only shared hosting) — hit the same action
+over HTTP instead, gated by your `SECRET_ACCESS_KEY` rather than a login (nothing to log
+into yet):
+
+```bash
+curl "https://your-domain.com/setup/create-admin?secret=<SECRET_ACCESS_KEY>&email=admin@example.com&password=a-strong-password"
+```
+
+(or just open that URL in a browser). Both are idempotent by email — re-run either any
+time to reset a forgotten password. Consider restricting or removing the
+`setup/create-admin` route (`application/config/routes.php`) once you've created the
+accounts you need — it's gated by the same secret as every other privileged action in
+this app, but there's no reason to leave it reachable indefinitely.
 
 ### Using it
 
@@ -403,6 +449,8 @@ application/
   controllers/Internal.php    presign, backend upload, bucket policy, event debug
   controllers/Health.php      /healthz
   controllers/Cronjobs.php    Option 3: HTTP-triggered event drain (GET /cronjobs/process)
+  controllers/Setup.php       Option 3: HTTP-triggered admin creation (GET /setup/create-admin),
+                               for hosts with no SSH/CLI access to run cli/create_admin.php
   controllers/Cli_migrate.php CLI-only: runs CI migrations to latest (cli/migrate.php calls it)
   controllers/admin/          Admin panel controllers (Auth, Dashboard, Buckets, Objects, Events)
   core/MY_Controller.php      S3/Internal API auth dispatch (both schemes) + CORS + audit log

@@ -4,3 +4,5 @@
 # why this is web-inaccessible; contents shouldn't be committed either way.
 storage/private/*
 !storage/private/.gitkeep
+application/logs/
+application/cache/

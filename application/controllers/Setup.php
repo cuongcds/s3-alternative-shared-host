@@ -64,7 +64,7 @@ class Setup extends CI_Controller
         } else {
             $this->db->insert('admins', array(
                 'email' => $email,
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT);,
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
                 'is_active' => 1,
                 'created_at' => date('Y-m-d H:i:s'),
             ));

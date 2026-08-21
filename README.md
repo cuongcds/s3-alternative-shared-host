@@ -61,7 +61,7 @@ would share containers/volumes in confusing ways.
 | Event worker | `worker` — long-running daemon, BLPOP's Redis (near-instant) | `worker-cron` — real cron daemon runs `cli/worker_cron.php` every minute (up to ~1 min latency) | `Cronjobs.php` — cPanel-style cron can only `wget`/`curl` a URL, not run a CLI script or daemon, so the drain is exposed over HTTP instead (up to ~1 min latency, same as option 2) |
 | Redis | required | required | **not available at all** — events still go into the `events` table (the durable source of truth for every option); `Cronjobs.php` polls it directly instead of reading a queue id |
 | Object storage | Docker volume (`object_data`) | Docker volume (`object_data`) | plain folder — [`storage/private/`](storage/private) bind-mounted, no Docker volume at all (a real host has no such concept, just a directory) |
-| Port | 8080 | 8090 | 8095 (simulation only — a real host serves on 80/443 under your domain) |
+| Port | 8080 | 8090 | none published — routed through the shared `nginx-proxy` (`webproxy` network) via `VIRTUAL_HOST`/`VIRTUAL_PORT`, since this is the option actually exposed for real (files.techx.ai) |
 | When to prefer | Default — lowest event latency, standard PHP-FPM ops model | Simpler single-process web container | You only have shared/cPanel-style hosting — no Docker, no SSH daemon, no Redis |
 
 All three share the same `cli/worker_lib.php` event-processing logic (thumbnailing,
@@ -114,12 +114,17 @@ On startup, the web container's entrypoint automatically (identical for both opt
 
 Option 3 (shared-hosting simulation — try this before deploying to a real host):
 
+No port is published for this option — it's routed through the shared `nginx-proxy`
+container instead (the one convention used for every real deploy on this host). Set
+`VIRTUAL_HOST` and `LETSENCRYPT_EMAIL` in `.env` first (see `.env.example`); the compose
+file's `networks.default` points straight at nginx-proxy's `webproxy` network.
+
 ```bash
 docker compose -f docker-compose.shared-hosting.yml up -d --build
 # No entrypoint automation here on purpose — import the schema once yourself,
 # same as you'd do via phpMyAdmin on a real host:
 docker exec -i <your-mysql-container> mysql -u<user> -p'<password>' <database> < db/schema.sql
-curl http://localhost:8095/healthz   # {"status":"ok"}
+curl https://<your VIRTUAL_HOST>/healthz   # {"status":"ok"}
 ```
 
 See **[Option 3: deploying to real shared hosting](#option-3-deploying-to-real-shared-hosting)**
@@ -250,8 +255,8 @@ other deploy option.
 
 ## Using the API
 
-Examples below use port 8080 (Option 1) — swap in 8090 (Option 2) or 8095 (Option 3
-simulation) / your real domain (Option 3, real host) as appropriate.
+Examples below use port 8080 (Option 1) — swap in 8090 (Option 2) or your `VIRTUAL_HOST`
+domain (Option 3, simulation and real host both go through nginx-proxy) as appropriate.
 
 Import [`docs/OpenS3.postman_collection.json`](docs/OpenS3.postman_collection.json) into
 Postman — set `access_key_id`/`secret_access_key` collection variables from your `.env`

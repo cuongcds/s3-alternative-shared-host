@@ -12,6 +12,15 @@
 # inside your uploaded project. See storage/.htaccess for why it's blocked
 # from direct web access.
 #
+# No port is published here on purpose: this is the one deploy option that
+# actually gets exposed for real (files.techx.ai), so it's routed through
+# the shared nginx-proxy container instead — see VIRTUAL_HOST/VIRTUAL_PORT/
+# LETSENCRYPT_HOST/LETSENCRYPT_EMAIL below and set VIRTUAL_HOST/
+# LETSENCRYPT_EMAIL in .env. `networks.default` below points this compose
+# project's default network AT nginx-proxy's `webproxy` network instead of
+# creating its own, which is also how apache-shared and cron-wget still
+# reach each other by service name.
+#
 # Run with:
 #   docker compose -f docker-compose.shared-hosting.yml up -d --build
 # Then import db/schema.sql manually before the first request — nothing
@@ -25,8 +34,10 @@ services:
     environment:
       REDIS_HOST: ""
       STORAGE_ROOT: /var/www/html/storage/private
-    ports:
-      - "8095:80"
+      VIRTUAL_HOST: ${VIRTUAL_HOST}
+      VIRTUAL_PORT: 80
+      LETSENCRYPT_HOST: ${VIRTUAL_HOST}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
     volumes:
       - ./storage/private:/var/www/html/storage/private
       - ./application:/var/www/html/application
@@ -44,3 +55,8 @@ services:
     depends_on:
       - apache-shared
     restart: unless-stopped
+
+networks:
+  default:
+    name: webproxy
+    external: true

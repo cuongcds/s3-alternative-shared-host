@@ -25,6 +25,12 @@ $config['s3_presign_default_ttl'] = 300;   // 5 minutes
 // Clock skew tolerance for header-based signature verification (seconds)
 $config['s3_clock_skew_tolerance'] = 300;
 
+// Lifetime of a short-term bucket token (see access_tokens table / Buckets::
+// generateToken() / Internal::presignWithToken()) — a delegated credential
+// that can request presigned URLs without the real Access/Secret Key. Opt-in
+// per bucket via buckets.allow_short_term_tokens.
+$config['s3_shortterm_token_ttl'] = (int) (getenv('SHORTTERM_TOKEN_TTL') ?: 10800); // 3 hours
+
 // Redis is optional — deploy option 3 (shared hosting, no Docker) has no
 // Redis available at all. Leaving REDIS_HOST empty disables it entirely:
 // events still get written to the `events` table (the durable source of

@@ -17,6 +17,7 @@ class Buckets extends Admin_Controller
         $this->requireLogin();
         $this->load->model('bucket_model');
         $this->load->model('object_model');
+        $this->load->model('access_token_model');
         $this->load->library('filesystem_driver');
     }
 
@@ -91,6 +92,7 @@ class Buckets extends Admin_Controller
             $this->bucket_model->updatePolicy($bucket['id'], array(
                 'versioning_enabled' => $this->input->post('versioning_enabled') ? 1 : 0,
                 'is_public' => $this->input->post('is_public') ? 1 : 0,
+                'allow_short_term_tokens' => $this->input->post('allow_short_term_tokens') ? 1 : 0,
                 'cors_config' => $cors,
                 'allowed_mime_types' => $mimes,
                 'notification_url' => (trim((string) $this->input->post('notification_url')) ?: NULL),
@@ -101,7 +103,54 @@ class Buckets extends Admin_Controller
             redirect('admin/buckets/' . $name . '/edit');
         }
 
-        $this->render('admin/buckets/form', array('mode' => 'edit', 'bucket' => $bucket));
+        $tokens = $this->access_token_model->listActiveByBucket($bucket['id']);
+        $this->render('admin/buckets/form', array(
+            'mode' => 'edit',
+            'bucket' => $bucket,
+            'tokens' => $tokens,
+            'new_token' => $this->session->flashdata('new_token'),
+        ));
+    }
+
+    /**
+     * Mints a short-term token for this bucket (docs — "Allow short-term
+     * tokens" setting above). The raw value is shown exactly once via
+     * flashdata: only its hash is stored, so it can't be recovered later.
+     */
+    public function generateToken($name)
+    {
+        $this->verifyCsrf();
+
+        $bucket = $this->bucket_model->findByName($name);
+        if (!$bucket) {
+            show_404();
+        }
+        if (!(int) $bucket['allow_short_term_tokens']) {
+            $this->session->set_flashdata('flash_error', 'Enable "Allow short-term tokens" and save first.');
+            redirect('admin/buckets/' . $name . '/edit');
+        }
+
+        $ttl = (int) $this->config->item('s3_shortterm_token_ttl', 's3');
+        $issued = $this->access_token_model->create($bucket['id'], $ttl);
+
+        $this->session->set_flashdata('flash_success', 'Token generated — copy it now, it will not be shown again.');
+        $this->session->set_flashdata('new_token', $issued['token']);
+        redirect('admin/buckets/' . $name . '/edit');
+    }
+
+    public function revokeToken($name, $tokenId)
+    {
+        $this->verifyCsrf();
+
+        $bucket = $this->bucket_model->findByName($name);
+        if (!$bucket) {
+            show_404();
+        }
+
+        $this->access_token_model->revoke((int) $tokenId, $bucket['id']);
+
+        $this->session->set_flashdata('flash_success', 'Token revoked.');
+        redirect('admin/buckets/' . $name . '/edit');
     }
 
     public function delete($name)

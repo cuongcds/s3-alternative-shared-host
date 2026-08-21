@@ -128,6 +128,11 @@
       "key": "upload_id",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "short_term_token",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -457,6 +462,43 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"bucket\": \"{{bucket}}\",\n  \"key\": \"presigned-demo.txt\",\n  \"method\": \"GET\",\n  \"expiresIn\": 300\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Presigned PUT URL (short-term token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Os3-Token",
+                "value": "{{short_term_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/internal/presign-with-token",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "internal",
+                "presign-with-token"
+              ]
+            },
+            "description": "Same result as `Generate Presigned PUT URL`, but authenticated with a short-term bucket token (see the bucket's edit page in the admin panel, \"Allow short-term tokens\") instead of the Access/Secret Key — no `bucket` field in the body, the token itself scopes this to whichever bucket it was issued for. Set `short_term_token` to a value generated there first (it's shown only once).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"presigned-demo.txt\",\n  \"method\": \"PUT\",\n  \"expiresIn\": 300\n}",
               "options": {
                 "raw": {
                   "language": "json"

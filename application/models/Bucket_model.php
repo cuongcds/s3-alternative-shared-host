@@ -78,7 +78,7 @@ class Bucket_model extends CI_Model
 
     public function updatePolicy($id, array $fields)
     {
-        $allowed = array('versioning_enabled', 'is_public', 'cors_config', 'notification_url', 'max_object_size', 'allowed_mime_types');
+        $allowed = array('versioning_enabled', 'is_public', 'allow_short_term_tokens', 'cors_config', 'notification_url', 'max_object_size', 'allowed_mime_types');
         $data = array();
         foreach ($allowed as $key) {
             if (array_key_exists($key, $fields)) {

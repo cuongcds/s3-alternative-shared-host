@@ -4,7 +4,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 /**
  * Convenience endpoints that are NOT part of the S3 REST surface: presigned-URL
  * issuance (usecase 1), bucket policy management, and event/queue introspection.
- * All require the same fixed Access Key/Secret Key as the S3 API (header auth).
+ * All require the same fixed Access Key/Secret Key as the S3 API (header auth),
+ * EXCEPT presignWithToken() — that one accepts a short-term bucket token
+ * instead (see its docblock).
  */
 class Internal extends MY_Controller
 {
@@ -12,6 +14,7 @@ class Internal extends MY_Controller
     {
         parent::__construct();
         $this->load->model('bucket_model');
+        $this->load->model('access_token_model');
     }
 
     public function presign()
@@ -48,6 +51,61 @@ class Internal extends MY_Controller
         $this->audit('presign', $key, 200, $bucket);
         $this->output->set_content_type('application/json')->set_output(json_encode(array(
             'url' => $url,
+            'method' => $method,
+            'expiresIn' => $ttl,
+            'expiresAt' => date('c', time() + $ttl),
+        )));
+    }
+
+    /**
+     * Delegated presign issuance: authenticates with a short-term bucket
+     * token (`X-Os3-Token` header, see Buckets::generateToken() in the admin
+     * panel) instead of the fixed Access/Secret Key — lets a less-trusted
+     * client request presigned URLs without ever holding the real
+     * credentials. The bucket is taken from the token itself, never from the
+     * request body, so a token can't be used to presign a different bucket.
+     */
+    public function presignWithToken()
+    {
+        $token = $this->get_header('X-Os3-Token');
+        if (!$token) {
+            $this->send_error(403, 'AccessDenied', 'Missing X-Os3-Token header');
+        }
+
+        $tokenRow = $this->access_token_model->findValidByToken($token);
+        if (!$tokenRow) {
+            $this->send_error(403, 'AccessDenied', 'Invalid, expired or revoked token');
+        }
+        if (!(int) $tokenRow['allow_short_term_tokens']) {
+            $this->send_error(403, 'AccessDenied', 'Short-term tokens are disabled for this bucket');
+        }
+
+        $raw = $this->raw_body();
+        $body = json_decode($raw, TRUE);
+        if (!is_array($body)) {
+            $this->send_error(400, 'InvalidRequest', 'Request body must be JSON');
+        }
+
+        $key = isset($body['key']) ? $body['key'] : NULL;
+        $method = isset($body['method']) ? strtoupper($body['method']) : 'PUT';
+        $expiresIn = isset($body['expiresIn']) ? (int) $body['expiresIn'] : NULL;
+
+        if (!$key || !in_array($method, array('PUT', 'GET'), TRUE)) {
+            $this->send_error(400, 'InvalidRequest', 'key and method (PUT|GET) are required');
+        }
+
+        $bucket = $tokenRow['bucket_name'];
+        $path = '/' . $bucket . '/' . $key;
+        $baseUrl = $this->config->item('s3_public_base_url', 's3');
+        $url = $this->sigv4_signer->presignUrl($baseUrl, $method, $path, $expiresIn);
+
+        $ttl = $expiresIn ?: (int) $this->config->item('s3_presign_default_ttl', 's3');
+        $ttl = max((int) $this->config->item('s3_presign_min_ttl', 's3'), min((int) $this->config->item('s3_presign_max_ttl', 's3'), $ttl));
+
+        $this->audit('presign_with_token', $key, 200, $bucket);
+        $this->output->set_content_type('application/json')->set_output(json_encode(array(
+            'url' => $url,
+            'bucket' => $bucket,
             'method' => $method,
             'expiresIn' => $ttl,
             'expiresAt' => date('c', time() + $ttl),

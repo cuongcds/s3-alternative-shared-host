@@ -61,6 +61,7 @@ $route['healthz'] = 'health/index';
 $route['cronjobs/process'] = 'cronjobs/process';
 
 $route['internal/presign'] = 'internal/presign';
+$route['internal/presign-with-token'] = 'internal/presignWithToken';
 $route['internal/buckets/(.+)/policy'] = 'internal/policy/$1';
 $route['internal/events'] = 'internal/events';
 $route['internal/uploads/(.+)'] = 'internal/upload/$1';
@@ -84,6 +85,8 @@ $route['admin/buckets'] = 'admin/buckets/index';
 $route['admin/buckets/new'] = 'admin/buckets/create';
 $route['admin/buckets/(.+)/edit'] = 'admin/buckets/edit/$1';
 $route['admin/buckets/(.+)/delete'] = 'admin/buckets/delete/$1';
+$route['admin/buckets/(.+)/tokens'] = 'admin/buckets/generateToken/$1';
+$route['admin/buckets/(.+)/tokens/(\d+)/revoke'] = 'admin/buckets/revokeToken/$1/$2';
 $route['admin/buckets/(.+)/objects/tree'] = 'admin/objects/tree/$1';
 $route['admin/buckets/(.+)/objects/preview'] = 'admin/objects/preview/$1';
 $route['admin/buckets/(.+)/objects/download'] = 'admin/objects/download/$1';

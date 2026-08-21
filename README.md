@@ -367,6 +367,7 @@ Authorization: <signed, same as any other request>
 {
   "versioning_enabled": true,
   "is_public": true,
+  "allow_short_term_tokens": true,
   "cors_config": {
     "allowed_origins": ["https://example.com"],
     "allowed_methods": ["GET", "PUT", "HEAD"],
@@ -384,6 +385,7 @@ Authorization: <signed, same as any other request>
 |---|---|---|---|
 | `versioning_enabled` | bool | `false` | Keeps every version of an object instead of overwriting in place; `DELETE` without `?versionId=` inserts a delete-marker rather than removing prior versions. |
 | `is_public` | bool | `false` | **Object** `GET`/`HEAD` needs no signature at all (e.g. a plain `<img src>` or unsigned `fetch`). Scoped narrowly: bucket-level listing (`GET /{bucket}`) and every write (`PUT`/`DELETE`) still always require a valid signature, even on a public bucket. |
+| `allow_short_term_tokens` | bool | `false` | Lets the admin panel (bucket's edit page) mint short-term (~3h) tokens for this bucket — see [Short-term tokens](#short-term-tokens-delegated-presign) below. Turning this off immediately stops any already-issued token for this bucket from working, without having to revoke each one individually. |
 | `cors_config` | object or `null` | `null` (no CORS) | Like real S3: with no `cors_config`, **no** `Access-Control-*` headers are ever sent, so cross-origin browser calls (e.g. a presigned upload from a web app on another domain) are blocked by the browser. Set it to enable CORS — see shape below. Also auto-answers the `OPTIONS` preflight (no auth required for that specific request). |
 | `notification_url` | string or `null` | `null` | Webhook the `worker` POSTs to after every object write/delete on this bucket — see [Event webhooks](#event-webhooks) below. |
 | `max_object_size` | int (bytes) | `5368709120` (5 GB) | Per-object upload size cap for this bucket; requests over this (or the global `MAX_UPLOAD_SIZE`, whichever is smaller) get `400 EntityTooLarge`. |
@@ -409,6 +411,36 @@ curl -X PUT http://localhost:8080/internal/buckets/my-bucket/policy \
 
 (Use the Postman collection's `Bucket Policy` folder instead of hand-rolling `curl` +
 signature — it signs this for you.)
+
+### Short-term tokens (delegated presign)
+
+For a client you don't want to hand the real `ACCESS_KEY_ID`/`SECRET_ACCESS_KEY` to (e.g.
+a browser session, a third-party integration), a bucket with `allow_short_term_tokens`
+enabled can issue tokens that are only good for requesting presigned URLs **on that one
+bucket** — not for anything else the fixed key can do (no bucket policy changes, no
+listing other buckets, no calling the S3 REST API directly).
+
+1. Enable "Allow short-term tokens" on the bucket's edit page in the admin panel
+   (`/admin/buckets/{bucket}/edit`), save, then click "Generate token" — the raw token is
+   shown once and cannot be recovered afterwards (only its hash is stored). Each token is
+   valid for `SHORTTERM_TOKEN_TTL` seconds (default 10800 = 3 hours; see `.env.example`),
+   after which it stops working on its own — no manual revoke needed, though the edit page
+   also lets you revoke one early.
+2. The holder of that token calls `POST /internal/presign-with-token` with it instead of a
+   signed request:
+
+```bash
+curl -X POST http://localhost:8080/internal/presign-with-token \
+  -H "X-Os3-Token: <token from step 1>" -H "Content-Type: application/json" \
+  -d '{"key": "uploads/photo.jpg", "method": "PUT", "expiresIn": 300}'
+```
+
+Response is the same shape as `/internal/presign` (`url`, `method`, `expiresIn`,
+`expiresAt`), plus `bucket` — which is always the bucket the token was issued for, taken
+from the token itself rather than the request body, so a token can never be used to
+presign a different bucket. The presigned URL it returns still has the normal 15-minute
+`s3_presign_max_ttl` ceiling — the 3-hour token only controls how long you can keep asking
+for new presigned URLs, not how long any single presigned URL stays valid.
 
 ### Event webhooks
 
@@ -451,7 +483,7 @@ Deletion and virus-quarantine events currently use a simpler, ad-hoc shape inste
 ```text
 application/
   controllers/S3.php          S3-compatible REST API (buckets/objects)
-  controllers/Internal.php    presign, backend upload, bucket policy, event debug
+  controllers/Internal.php    presign (incl. presign-with-token), backend upload, bucket policy, event debug
   controllers/Health.php      /healthz
   controllers/Cronjobs.php    Option 3: HTTP-triggered event drain (GET /cronjobs/process)
   controllers/Setup.php       Option 3: HTTP-triggered admin creation (GET /setup/create-admin),
@@ -466,7 +498,7 @@ application/
   libraries/Image_processor.php   thumbnailing (GD)
   libraries/Virus_scanner.php     ClamAV client
   libraries/Redis_queue.php       event queue (Predis) — unused/optional for Option 3
-  models/                     Bucket_model, Object_model, Event_model, Admin_model
+  models/                     Bucket_model, Object_model, Event_model, Admin_model, Access_token_model
   migrations/                 CI migrations — schema changes since the admin panel go here,
                                not db/schema.sql (see Admin panel section above)
   views/admin/                Admin panel views (Tailwind-styled)

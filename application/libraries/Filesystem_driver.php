@@ -96,8 +96,8 @@ class Filesystem_driver
         $this->ensureBucketDir($bucket);
         $finalPath = $this->objectPath($bucket, $key);
         $dir = dirname($finalPath);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, TRUE);
+        if (!is_dir($dir) && !mkdir($dir, 0775, TRUE) && !is_dir($dir)) {
+            throw new RuntimeException('Failed to create destination directory');
         }
         $tmpPath = $finalPath . '.tmp-' . bin2hex(random_bytes(8));
 
@@ -127,7 +127,10 @@ class Filesystem_driver
         fclose($dest);
 
         $etag = hash_final($ctx);
-        rename($tmpPath, $finalPath);
+        if (!rename($tmpPath, $finalPath)) {
+            @unlink($tmpPath);
+            throw new RuntimeException('Failed to finalize stored object');
+        }
 
         return array('size' => $size, 'etag' => $etag, 'path' => $finalPath);
     }

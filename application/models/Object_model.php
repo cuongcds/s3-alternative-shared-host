@@ -134,7 +134,12 @@ class Object_model extends CI_Model
                 ->where('version_id', NULL)
                 ->get('objects')->row_array();
             if ($existing) {
-                $this->filesystem_driver->deleteObjectFile($existing['storage_path']);
+                // storage_path is deterministic per (bucket, key) — the file at
+                // that path was already overwritten by the new upload's rename(),
+                // so deleting it here would destroy the object we just wrote.
+                if ($existing['storage_path'] !== $streamResult['path']) {
+                    $this->filesystem_driver->deleteObjectFile($existing['storage_path']);
+                }
                 $this->db->where('id', $existing['id'])->delete('objects');
             }
         }

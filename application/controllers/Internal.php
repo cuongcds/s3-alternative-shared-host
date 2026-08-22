@@ -95,8 +95,13 @@ class Internal extends MY_Controller
         }
 
         $bucket = $tokenRow['bucket_name'];
-        $path = '/' . $bucket . '/' . $key;
         $baseUrl = $this->config->item('s3_public_base_url', 's3');
+
+        if ($method === 'PUT') {
+            $key = $this->uniqueKey($baseUrl, $bucket, $key);
+        }
+
+        $path = '/' . $bucket . '/' . $key;
         $url = $this->sigv4_signer->presignUrl($baseUrl, $method, $path, $expiresIn);
 
         $ttl = $expiresIn ?: (int) $this->config->item('s3_presign_default_ttl', 's3');
@@ -106,10 +111,74 @@ class Internal extends MY_Controller
         $this->output->set_content_type('application/json')->set_output(json_encode(array(
             'url' => $url,
             'bucket' => $bucket,
+            'key' => $key,
             'method' => $method,
             'expiresIn' => $ttl,
             'expiresAt' => date('c', time() + $ttl),
         )));
+    }
+
+    /**
+     * If $key already resolves to an object, returns a different key instead
+     * so a PUT presign can never collide with an existing object. Existence
+     * is checked the exact same way an external S3 client would (a signed
+     * HEAD request against the public API), not via the object/bucket
+     * models directly — presignWithToken has no more insight into storage
+     * internals than any other client of this API.
+     */
+    protected function uniqueKey($baseUrl, $bucket, $key)
+    {
+        if (!$this->headObjectExists($baseUrl, $bucket, $key)) {
+            return $key;
+        }
+
+        $dot = strrpos($key, '.');
+        $base = $dot !== FALSE ? substr($key, 0, $dot) : $key;
+        $ext = $dot !== FALSE ? substr($key, $dot) : '';
+
+        for ($i = 0; $i < 10; $i++) {
+            $candidate = $base . '-' . bin2hex(random_bytes(4)) . $ext;
+            if (!$this->headObjectExists($baseUrl, $bucket, $candidate)) {
+                return $candidate;
+            }
+        }
+
+        // Astronomically unlikely, but never loop forever.
+        $this->send_error(500, 'InternalError', 'Failed to generate a unique object key', $key);
+    }
+
+    /**
+     * Self-signed, short-lived HEAD request against our own public S3 API —
+     * mirrors what an AWS SDK's HeadObjectCommand does: 200 means the object
+     * exists, 404 means it doesn't. Any other outcome (network hiccup,
+     * unexpected status) is treated as "exists" so the caller falls back to
+     * a fresh key instead of risking an overwrite.
+     */
+    protected function headObjectExists($baseUrl, $bucket, $key)
+    {
+        $path = '/' . $bucket . '/' . $key;
+        $headUrl = $this->sigv4_signer->presignUrl($baseUrl, 'HEAD', $path, 60);
+
+        $ch = curl_init($headUrl);
+        curl_setopt_array($ch, array(
+            CURLOPT_NOBODY => TRUE,
+            CURLOPT_CUSTOMREQUEST => 'HEAD',
+            CURLOPT_RETURNTRANSFER => TRUE,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT => 5,
+        ));
+        curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $failed = curl_errno($ch) !== 0;
+        curl_close($ch);
+
+        if ($failed) {
+            return TRUE;
+        }
+        if ($httpCode === 404) {
+            return FALSE;
+        }
+        return TRUE;
     }
 
     public function policy()

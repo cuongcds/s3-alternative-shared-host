@@ -1,5 +1,9 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
-<?php $isEdit = ($mode === 'edit'); ?>
+
+<?php
+$isEdit = ($mode === 'edit');
+$allowShortTermTokens = (int) $bucket['allow_short_term_tokens'];
+?>
 <div class="flex items-center gap-3 mb-6">
   <a href="<?php echo site_url('admin/buckets'); ?>" class="text-gray-400 hover:text-gray-700">
     <i class="material-icons align-middle">arrow_back</i>
@@ -36,7 +40,7 @@
           Public read (anonymous GET/HEAD object)
         </label>
         <label class="flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" name="allow_short_term_tokens" value="1" <?php echo ((int) $bucket['allow_short_term_tokens']) ? 'checked' : ''; ?>
+          <input type="checkbox" name="allow_short_term_tokens" value="1" <?php echo $allowShortTermTokens ? 'checked' : ''; ?>
                  class="rounded border-gray-300">
           Allow short-term tokens
         </label>
@@ -87,7 +91,7 @@
   </form>
 </div>
 
-<?php if ($isEdit): ?>
+<?php if ($isEdit && $allowShortTermTokens): ?>
 <div class="bg-white rounded-lg shadow p-6 max-w-2xl mt-6">
   <h2 class="text-sm font-semibold text-gray-800 mb-1">Short-term tokens</h2>
   <p class="text-xs text-gray-400 mb-4">

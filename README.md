@@ -4,34 +4,31 @@
 
 A self-hosted, S3-compatible object storage service built on CodeIgniter 3 — a drop-in
 replacement for AWS S3 for a **single fixed-credential account** with **multi-bucket**
-support. See [`docs/plans.md`](docs/plans.md) for the full design/roadmap,
-[`docs/plans_v2.md`](docs/plans_v2.md) for the admin panel, and
-[`docs/AWS_S3_Integration_Best_Practices.md`](docs/AWS_S3_Integration_Best_Practices.md)
-for the three upload usecases this implements.
+support. Full design/roadmap in [`docs/plans.md`](docs/plans.md), admin panel design in
+[`docs/plans_v2.md`](docs/plans_v2.md), upload usecases in
+[`docs/AWS_S3_Integration_Best_Practices.md`](docs/AWS_S3_Integration_Best_Practices.md).
 
 ## Features
 
-- **S3-compatible REST API** — bucket/object CRUD, `ListObjectsV2`-style listing,
-  Range requests, versioning.
-- **Two auth schemes, auto-detected per request**:
-  - `OS3-HMAC-SHA256` — this project's own scheme (header or presigned-URL query auth).
-  - `AWS4-HMAC-SHA256` — the **real AWS SigV4 spec**, so unmodified AWS SDKs
-    (`@aws-sdk/client-s3`, `boto3`, `aws-cli`, MinIO clients...) work by just pointing
-    `endpoint` at this server with the fixed Access Key/Secret Key — no custom
-    integration needed.
-- **Presigned URLs** for direct browser upload/download (usecase 1).
-- **Backend upload pipeline** — size/mime validation, optional ClamAV virus scan,
-  automatic image thumbnailing (usecase 2).
+- **S3-compatible REST API** — bucket/object CRUD, `ListObjectsV2`-style listing, Range
+  requests, versioning.
+- **Two auth schemes, auto-detected per request**: this project's own
+  `OS3-HMAC-SHA256` (header or presigned-URL query auth), and the **real AWS SigV4
+  spec** (`AWS4-HMAC-SHA256`) — so unmodified AWS SDKs (`@aws-sdk/client-s3`, `boto3`,
+  `aws-cli`, MinIO clients...) work by just pointing `endpoint` at this server, no
+  custom integration.
+- **Presigned URLs** for direct browser upload/download.
+- **Backend upload pipeline** — size/MIME validation, optional ClamAV virus scan,
+  automatic image thumbnailing.
 - **Event-driven hooks** — every object write/delete queues a Redis event the `worker`
-  processes async (thumbnailing, virus scan, S3-Event-shaped webhook notifications)
-  (usecase 3).
+  processes async (thumbnailing, virus scan, S3-Event-shaped webhook notifications).
 - **Per-bucket CORS** and **public-read buckets** — see [Configuring bucket
-  settings](#configuring-bucket-settings) below.
+  settings](#configuring-bucket-settings).
 - **Postman collection** ([`docs/OpenS3.postman_collection.json`](docs/OpenS3.postman_collection.json))
   documenting every endpoint, auto-signing requests for you.
-- **Admin panel** (`/admin`) — session-based login (separate from the S3 API's own auth),
-  bucket management, an object tree browser with inline preview, and event/dispatch
-  status with manual redispatch. See [Admin panel](#admin-panel) below.
+- **Admin panel** (`/admin`) — session-based login separate from the S3 API's own auth,
+  bucket management, an object tree browser with inline preview, event/dispatch status
+  with manual redispatch. See [Admin panel](#admin-panel).
 
 ## Architecture
 
@@ -42,19 +39,17 @@ nginx (8080) → app (PHP-FPM, CodeIgniter 3) ──┐
                                                 └─→ Redis
 ```
 
-MySQL and Redis are **not** part of this project's `docker-compose.yml` — they're
-external dependencies this project connects to (configured via `.env`), not something
-this stack provisions itself.
+MySQL and Redis are **not** provisioned by `docker-compose.yml` — external dependencies
+this project connects to via `.env`.
 
 Object files live on a local Docker volume (`object_data`), hashed into subdirectories
 per bucket — see `Filesystem_driver`.
 
 ## Deploy options
 
-Three ways to run this — same app code, same database, just different web server and
-worker execution model. Pick one; don't run the Docker-based ones (1 and 2, and the
-simulation for 3) at the same time — they default to the same Compose project name and
-would share containers/volumes in confusing ways.
+Three ways to run this — same app code, same database, different web server and worker
+model. Pick one; don't run the Docker-based options together — they share a Compose
+project name and would collide on containers/volumes.
 
 | | **Option 1 — nginx**<br>(`docker-compose.yml`) | **Option 2 — Apache**<br>(`docker-compose.apache.yml`) | **Option 3 — shared hosting**<br>(no Docker; simulated by `docker-compose.shared-hosting.yml`) |
 |---|---|---|---|
@@ -81,14 +76,13 @@ cp .env.example .env
 
 Edit `.env`:
 
-- `ACCESS_KEY_ID` / `SECRET_ACCESS_KEY` — generate with `openssl rand -hex 20`. This is
-  the single account's credentials, used for **both** auth schemes.
-- `DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD`/`DB_DATABASE` — how to reach your
-  MySQL server. `DB_DATABASE` is created automatically on startup if missing.
-- `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD` — how to reach your Redis server.
-- `PUBLIC_BASE_URL` — the URL clients actually connect to (e.g. `http://localhost:8080`,
-  or `:8090` for the Apache option). Must be correct for presigned URLs to verify (the
-  signed `host` has to match what the client's request actually sends).
+- `ACCESS_KEY_ID` / `SECRET_ACCESS_KEY` — generate with `openssl rand -hex 20`. The
+  single account's credentials, used for **both** auth schemes.
+- `DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD`/`DB_DATABASE` — your MySQL server;
+  `DB_DATABASE` is created automatically on startup if missing.
+- `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD` — your Redis server.
+- `PUBLIC_BASE_URL` — the URL clients actually connect to (`http://localhost:8080`, or
+  `:8090` for Apache). Must match what the client sends, or presigned URLs won't verify.
 
 ### 2. Build and start
 
@@ -106,20 +100,15 @@ docker compose -f docker-compose.apache.yml up -d --build
 curl http://localhost:8090/healthz   # {"status":"ok"}
 ```
 
-On startup, the web container's entrypoint automatically (identical for both options):
-1. Waits for MySQL to become reachable.
-2. Creates the database (if missing) and applies `db/schema.sql` (`cli/migrate.php`,
-   idempotent — safe to run on every restart), then runs any pending CI migrations under
-   [`application/migrations/`](application/migrations/) (schema changes since the admin
-   panel was added go through these instead — see [Admin panel](#admin-panel)).
-3. Seeds the `access_keys` table from `ACCESS_KEY_ID`/`SECRET_ACCESS_KEY` (`cli/seed.php`).
+On startup, the entrypoint (identical for both options) waits for MySQL, creates the
+database and applies `db/schema.sql` plus any pending CI migrations under
+[`application/migrations/`](application/migrations/) (`cli/migrate.php`, idempotent),
+then seeds the `access_keys` table from `.env` (`cli/seed.php`).
 
 Option 3 (shared-hosting simulation — try this before deploying to a real host):
 
-No port is published for this option — it's routed through the shared `nginx-proxy`
-container instead (the one convention used for every real deploy on this host). Set
-`VIRTUAL_HOST` and `LETSENCRYPT_EMAIL` in `.env` first (see `.env.example`); the compose
-file's `networks.default` points straight at nginx-proxy's `webproxy` network.
+No port is published — it's routed through the shared `nginx-proxy` container instead.
+Set `VIRTUAL_HOST` and `LETSENCRYPT_EMAIL` in `.env` first (see `.env.example`).
 
 ```bash
 docker compose -f docker-compose.shared-hosting.yml up -d --build
@@ -139,32 +128,26 @@ root and whatever cPanel-style control panel your host gives you.
 
 ### 1. Upload the code
 
-Copy the entire project (via FTP/SFTP/cPanel File Manager/git) to your host, e.g. into
+Copy the entire project (FTP/SFTP/cPanel File Manager/git) to your host, e.g.
 `public_html/` or a subdomain's document root.
 
 ### 2. Get `vendor/` onto the host
 
-This project needs `composer install` to run once. If your host has no SSH/Composer
-access (common on shared hosting), run it **locally** instead and upload the resulting
-`vendor/` folder along with everything else:
+No SSH/Composer access on your host? Run it **locally** and upload the resulting
+`vendor/` folder too:
 
 ```bash
 composer install --no-dev --optimize-autoloader
-# then upload vendor/ too, it's not something you can skip
 ```
 
 ### 3. Create the database and import the schema
 
-Shared hosts almost always give you a **cPanel "MySQL Databases"** page instead of raw
-MySQL root access — create a database + user there (cPanel usually prefixes both with
-your account name, e.g. `cpaneluser_opens3`), note the host/port it gives you (often
-just `localhost`), then open **phpMyAdmin** (also in cPanel) → select that database →
-**Import** tab → upload [`db/schema.sql`](db/schema.sql) directly. Nothing runs this for
-you automatically on this deploy option.
+In cPanel's **MySQL Databases** page, create a database + user (usually prefixed with
+your account name, e.g. `cpaneluser_opens3`), then **phpMyAdmin** → select it →
+**Import** → upload [`db/schema.sql`](db/schema.sql).
 
-If you want the [admin panel](#admin-panel) too, its two tables aren't in
-`db/schema.sql` (added later, via `application/migrations/` — see [Development
-notes](#development-notes)) — run this once in phpMyAdmin's **SQL** tab as well:
+Using the [admin panel](#admin-panel) too? Its two tables aren't in `db/schema.sql`
+(added later via `application/migrations/`) — run this once in phpMyAdmin's **SQL** tab:
 
 ```sql
 CREATE TABLE IF NOT EXISTS admins (
@@ -188,9 +171,8 @@ CREATE TABLE IF NOT EXISTS ci_sessions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-Skipping this is why the admin panel would otherwise fail with **"Invalid or missing
-CSRF token"** on every login attempt: without `ci_sessions`, the session never actually
-persists between the login page and the submit, so the token never matches.
+(without it, the admin panel fails with "Invalid or missing CSRF token" — no session
+persists between login and submit.)
 
 ### 4. Configure `.env`
 
@@ -199,52 +181,34 @@ cp .env.example .env
 ```
 
 - `ACCESS_KEY_ID` / `SECRET_ACCESS_KEY` — generate with `openssl rand -hex 20`.
-- `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` — whatever cPanel
-  gave you in step 3 (`DB_HOST` is usually `localhost`).
-- **Leave `REDIS_HOST` empty** (or delete the line) — there's no Redis on this option;
-  the app detects that and skips it automatically (`redis_enabled` in `config/s3.php`).
-- `CRON_SECRET` — generate with `openssl rand -hex 20`; required to call
-  `/cronjobs/process` (see step 6).
+- `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` — from step 3
+  (`DB_HOST` is usually `localhost`).
+- **Leave `REDIS_HOST` empty** — no Redis on this option; the app detects and skips it.
+- `CRON_SECRET` — generate with `openssl rand -hex 20`; required for step 6.
 - `PUBLIC_BASE_URL` — your real domain, e.g. `https://s3.your-domain.com`.
-- `STORAGE_ROOT` — the absolute path to [`storage/private/`](storage/private) inside
-  the uploaded project, e.g. `/home/cpaneluser/public_html/open-s3/storage/private`.
-  It's already blocked from direct web access by [`storage/.htaccess`](storage/.htaccess)
-  (`Require all denied`) regardless of where your document root is, so guessing a
-  file's path in a browser 403s instead of serving the raw object — no need to place it
-  outside the document root. Just make sure the directory is writable by whatever user
-  your host runs PHP as (usually your own account — shared hosting typically doesn't
-  have the separate `www-data`-vs-owner permission split Docker does, so it should
-  already be writable without extra `chmod`).
+- `STORAGE_ROOT` — absolute path to [`storage/private/`](storage/private), e.g.
+  `/home/cpaneluser/public_html/open-s3/storage/private`. Already blocked from direct
+  web access by [`storage/.htaccess`](storage/.htaccess); just make sure it's writable.
 
-The `access_keys` DB table does **not** need seeding here — auth reads
-`ACCESS_KEY_ID`/`SECRET_ACCESS_KEY` straight from `.env`, never from the database (that
-table exists only to support key rotation in a future version).
+(`access_keys` doesn't need DB seeding — auth reads credentials straight from `.env`.)
 
-### 5. Point Apache at `index.php` and enable the `Authorization` header
+### 5. Point Apache at `index.php`
 
-The included [`.htaccess`](.htaccess) at the project root handles both the
-front-controller routing (CodeIgniter's `index_page` is `''`) and the fact that Apache
-doesn't forward the `Authorization` header to PHP by default — as long as your host has
-`mod_rewrite` enabled (it does on virtually every shared host) and doesn't strip
-`.htaccess` overrides, this just works with no further config.
-
-Set your document root to the project's root directory (where `index.php` and
-`.htaccess` live) — not a `public/` subfolder, this project doesn't have one.
+The included [`.htaccess`](.htaccess) handles front-controller routing and forwarding
+the `Authorization` header (Apache doesn't do this by default) — works with no further
+config as long as `mod_rewrite` is enabled. Document root is the project root (where
+`index.php` lives), not a `public/` subfolder.
 
 ### 6. Configure the cron job
 
-In cPanel's **"Cron Jobs"** page, add a job (every minute, or whatever your host's
-minimum interval is) running:
+In cPanel's **Cron Jobs** page, add a job (every minute) running:
 
 ```bash
 wget -q -O /dev/null "https://your-domain.com/cronjobs/process?token=YOUR_CRON_SECRET"
 ```
 
-(use `curl -s -o /dev/null "..."` instead if your host only offers `curl`). This drains
-up to `CRON_BATCH_LIMIT` (default 20) pending events per tick — thumbnailing, virus
-scan, webhook notifications (usecase 3). Visit the URL yourself once to sanity-check it
-returns `{"processed":0,...}` (or a positive number if there's a backlog) instead of
-`403 Forbidden` (wrong/missing token) or a PHP error.
+Drains up to `CRON_BATCH_LIMIT` (default 20) pending events per tick. Visit the URL
+once to confirm `{"processed":0,...}` instead of `403 Forbidden` or a PHP error.
 
 ### 7. Verify
 
@@ -252,20 +216,19 @@ returns `{"processed":0,...}` (or a positive number if there's a backlog) instea
 curl https://your-domain.com/healthz   # {"status":"ok"}
 ```
 
-Then run the Postman collection (or `aws-cli`) against your real domain, same as any
-other deploy option.
+Then run the Postman collection (or `aws-cli`) against your real domain.
 
 ## Using the API
 
 Examples below use port 8080 (Option 1) — swap in 8090 (Option 2) or your `VIRTUAL_HOST`
-domain (Option 3, simulation and real host both go through nginx-proxy) as appropriate.
+domain (Option 3) as appropriate.
 
 Import [`docs/OpenS3.postman_collection.json`](docs/OpenS3.postman_collection.json) into
-Postman — set `access_key_id`/`secret_access_key` collection variables from your `.env`
-and every request signs itself automatically. It documents every endpoint (bucket/object
-CRUD, presigned URLs, backend upload, bucket policy, CORS, event debugging).
+Postman — set `access_key_id`/`secret_access_key` from your `.env` and every request
+signs itself. Covers every endpoint (bucket/object CRUD, presigned URLs, backend upload,
+bucket policy, CORS, event debugging).
 
-Quick example with the AWS CLI (real AWS SigV4 — no extra setup beyond credentials):
+Quick example with the AWS CLI (real SigV4 — no extra setup beyond credentials):
 
 ```bash
 aws configure set aws_access_key_id     <ACCESS_KEY_ID>
@@ -277,9 +240,8 @@ aws --endpoint-url http://localhost:8080 s3 cp ./photo.jpg s3://my-bucket/photo.
 aws --endpoint-url http://localhost:8080 s3 ls s3://my-bucket
 ```
 
-Any AWS SDK works the same way — set `endpoint`/`forcePathStyle: true` (the SDK v3
-option; other SDKs have an equivalent) and use the same credentials (see the SDK-based
-integration examples referenced in `docs/plans.md` section 5).
+Any AWS SDK works the same way — set `endpoint`/`forcePathStyle: true` and use the same
+credentials (integration examples in `docs/plans.md` section 5).
 
 ### Known gap
 
@@ -294,61 +256,44 @@ SigV4/OS3-HMAC auth — see [`docs/plans_v2.md`](docs/plans_v2.md) for the full 
 
 ### Create an admin account
 
-There's no signup form. Requires the `admins`/`ci_sessions` tables to already exist —
-created automatically on container startup for Options 1/2 (see [Setup](#setup) above),
-or manually via the SQL in [Option 3 step
-3](#3-create-the-database-and-import-the-schema) for real shared hosting.
+No signup form. Requires the `admins`/`ci_sessions` tables (auto-created on Options 1/2,
+manual SQL for [Option 3](#3-create-the-database-and-import-the-schema)).
 
-**With SSH/CLI access** (Options 1/2, or Option 3 if your host gives you a terminal) —
-seed or reset the password of an admin:
+**With SSH/CLI access** — seed or reset a password:
 
 ```bash
 docker compose exec app php cli/create_admin.php admin@example.com 'a-strong-password'
-# Apache option: docker compose -f docker-compose.apache.yml exec apache php cli/create_admin.php ...
 ```
 
-**Without SSH/CLI access** (typical cPanel-only shared hosting) — hit the same action
-over HTTP instead, gated by your `SECRET_ACCESS_KEY` rather than a login (nothing to log
-into yet):
+**Without SSH/CLI access** — same action over HTTP, gated by `SECRET_ACCESS_KEY`:
 
 ```bash
 curl "https://your-domain.com/setup/create-admin?secret=<SECRET_ACCESS_KEY>&email=admin@example.com&password=a-strong-password"
 ```
 
-(or just open that URL in a browser). Both are idempotent by email — re-run either any
-time to reset a forgotten password. Consider restricting or removing the
-`setup/create-admin` route (`application/config/routes.php`) once you've created the
-accounts you need — it's gated by the same secret as every other privileged action in
-this app, but there's no reason to leave it reachable indefinitely.
+Both are idempotent by email. Consider removing the `setup/create-admin` route
+(`application/config/routes.php`) once you've created the accounts you need.
 
 ### Using it
 
 Visit `http://localhost:8080/admin` (swap the port per [deploy option](#deploy-options))
-and sign in with the email/password from above. From there:
+and sign in. From there:
 
 - **Dashboard** — bucket/object/size totals, event status counts, recent audit log.
-- **Buckets** — create, delete (only if empty, same rule as the S3 API), and edit
-  per-bucket config (versioning, public-read, CORS, notification URL, max object size,
-  allowed MIME types) — the same fields as [Configuring bucket
-  settings](#configuring-bucket-settings) below, via a form instead of hand-rolled JSON.
-- **Object browser** — lazy-loaded folder tree (object keys are grouped on `/` the same
-  way S3's `delimiter` parameter would, since the underlying storage has no real
-  directories); inline preview for images/text/JSON/PDF, a download link (a freshly
-  presigned URL, not proxied through the panel) for everything else.
-- **Events** — the same `events` table the S3 API's webhook/thumbnailing pipeline uses,
-  filterable by status, with a **redispatch** button for `failed` events that resets and
-  re-queues them (picked up immediately if the `worker` daemon/cron is running).
+- **Buckets** — create, delete (only if empty), edit per-bucket config (versioning,
+  public-read, CORS, notification URL, size/MIME limits) — same fields as
+  [Configuring bucket settings](#configuring-bucket-settings), via a form.
+- **Object browser** — folder-tree view with inline preview and download links.
+- **Events** — the webhook/thumbnailing event log, filterable by status, with a
+  **redispatch** button for failed events.
 
 ### Notes
 
-- Login is **session-based** (own cookie, own CSRF token scoped only to `/admin/*`) —
-  completely independent from the API's request-signing auth; logging into the panel
-  grants no S3 API access and vice versa.
-- 5 failed logins locks that admin account for 15 minutes.
-- CSS is Tailwind, built at Docker image build time by a pinned standalone CLI (no
-  Node/npm at runtime, no CDN) — see `docker/app/Dockerfile` and `assets/admin.src.css`.
-  If you change any file under `application/views/admin/` or `assets/*.js` and want the
-  compiled CSS to pick up new classes without a full rebuild, run locally:
+- Login is session-based, independent from the API's request-signing auth — panel
+  access grants no S3 API access and vice versa.
+- 5 failed logins locks the account for 15 minutes.
+- CSS is Tailwind, built at Docker image time (no Node/npm at runtime). After editing
+  `application/views/admin/` or `assets/*.js`, rebuild locally with:
   ```bash
   npx tailwindcss@3 -i assets/admin.src.css -o assets/admin.css --minify
   ```
@@ -385,13 +330,13 @@ Authorization: <signed, same as any other request>
 
 | Field | Type | Default | Effect |
 |---|---|---|---|
-| `versioning_enabled` | bool | `false` | Keeps every version of an object instead of overwriting in place; `DELETE` without `?versionId=` inserts a delete-marker rather than removing prior versions. |
-| `is_public` | bool | `false` | **Object** `GET`/`HEAD` needs no signature at all (e.g. a plain `<img src>` or unsigned `fetch`). Scoped narrowly: bucket-level listing (`GET /{bucket}`) and every write (`PUT`/`DELETE`) still always require a valid signature, even on a public bucket. |
-| `allow_short_term_tokens` | bool | `false` | Lets the admin panel (bucket's edit page) mint short-term (~3h) tokens for this bucket — see [Short-term tokens](#short-term-tokens-delegated-presign) below. Turning this off immediately stops any already-issued token for this bucket from working, without having to revoke each one individually. |
-| `cors_config` | object or `null` | `null` (no CORS) | Like real S3: with no `cors_config`, **no** `Access-Control-*` headers are ever sent, so cross-origin browser calls (e.g. a presigned upload from a web app on another domain) are blocked by the browser. Set it to enable CORS — see shape below. Also auto-answers the `OPTIONS` preflight (no auth required for that specific request). |
-| `notification_url` | string or `null` | `null` | Webhook the `worker` POSTs to after every object write/delete on this bucket — see [Event webhooks](#event-webhooks) below. |
-| `max_object_size` | int (bytes) | `5368709120` (5 GB) | Per-object upload size cap for this bucket; requests over this (or the global `MAX_UPLOAD_SIZE`, whichever is smaller) get `400 EntityTooLarge`. |
-| `allowed_mime_types` | array or `null` | `null` (any type) | Whitelist of `Content-Type` values accepted for uploads to this bucket; `null`/omitted allows anything. |
+| `versioning_enabled` | bool | `false` | Keeps every version instead of overwriting; `DELETE` without `?versionId=` inserts a delete-marker. |
+| `is_public` | bool | `false` | Object `GET`/`HEAD` needs no signature. Listing and every write still require a valid signature. |
+| `allow_short_term_tokens` | bool | `false` | Lets the admin panel mint short-term (~3h) tokens for this bucket — see [Short-term tokens](#short-term-tokens-delegated-presign). |
+| `cors_config` | object or `null` | `null` (no CORS) | No `cors_config` = no `Access-Control-*` headers, so cross-origin calls are blocked. Also auto-answers `OPTIONS` preflight. |
+| `notification_url` | string or `null` | `null` | Webhook the `worker` POSTs to after every write/delete — see [Event webhooks](#event-webhooks). |
+| `max_object_size` | int (bytes) | `5368709120` (5 GB) | Per-object cap; over this (or global `MAX_UPLOAD_SIZE`) gets `400 EntityTooLarge`. |
+| `allowed_mime_types` | array or `null` | `null` (any type) | Whitelist of accepted `Content-Type` values. |
 
 ### `cors_config` shape
 
@@ -416,20 +361,14 @@ signature — it signs this for you.)
 
 ### Short-term tokens (delegated presign)
 
-For a client you don't want to hand the real `ACCESS_KEY_ID`/`SECRET_ACCESS_KEY` to (e.g.
-a browser session, a third-party integration), a bucket with `allow_short_term_tokens`
-enabled can issue tokens that are only good for requesting presigned URLs **on that one
-bucket** — not for anything else the fixed key can do (no bucket policy changes, no
-listing other buckets, no calling the S3 REST API directly).
+For a client you don't want to hand the real credentials to, a bucket with
+`allow_short_term_tokens` enabled can issue tokens scoped to presigned URLs on that one
+bucket only — no policy changes, no listing other buckets, no direct API calls.
 
-1. Enable "Allow short-term tokens" on the bucket's edit page in the admin panel
-   (`/admin/buckets/{bucket}/edit`), save, then click "Generate token" — the raw token is
-   shown once and cannot be recovered afterwards (only its hash is stored). Each token is
-   valid for `SHORTTERM_TOKEN_TTL` seconds (default 10800 = 3 hours; see `.env.example`),
-   after which it stops working on its own — no manual revoke needed, though the edit page
-   also lets you revoke one early.
-2. The holder of that token calls `POST /internal/presign-with-token` with it instead of a
-   signed request:
+1. Enable it on the bucket's edit page (`/admin/buckets/{bucket}/edit`), then click
+   "Generate token" — shown once, valid for `SHORTTERM_TOKEN_TTL` seconds (default
+   10800 = 3h), revocable early.
+2. The holder calls `POST /internal/presign-with-token` with it instead of a signed request:
 
 ```bash
 curl -X POST http://localhost:8080/internal/presign-with-token \
@@ -437,24 +376,18 @@ curl -X POST http://localhost:8080/internal/presign-with-token \
   -d '{"key": "uploads/photo.jpg", "method": "PUT", "expiresIn": 300}'
 ```
 
-Response is the same shape as `/internal/presign` (`url`, `method`, `expiresIn`,
-`expiresAt`), plus `bucket` — which is always the bucket the token was issued for, taken
-from the token itself rather than the request body, so a token can never be used to
-presign a different bucket. The presigned URL it returns still has the normal 15-minute
-`s3_presign_max_ttl` ceiling — the 3-hour token only controls how long you can keep asking
-for new presigned URLs, not how long any single presigned URL stays valid.
+Response matches `/internal/presign` plus `bucket` (always the token's own bucket). The
+presigned URL still has the normal 15-minute `s3_presign_max_ttl` ceiling.
 
 ### Event webhooks
 
-When `notification_url` is set, the `worker` POSTs a JSON body after processing an
-object write/delete. Every webhook request carries an `X-Os3-Signature` header:
-`hex(hmac_sha256(body, SECRET_ACCESS_KEY))` — verify it on your receiving end to confirm
-the notification actually came from this server.
+When `notification_url` is set, the `worker` POSTs a JSON body after every write/delete,
+signed with `X-Os3-Signature: hex(hmac_sha256(body, SECRET_ACCESS_KEY))` — verify it to
+confirm the notification came from this server.
 
-A successful upload (`object.created`, no infection found) is shaped like real
-[S3 Event Notifications](https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html) /
-MinIO bucket notifications, so a consumer built against the real S3 event format works
-unchanged:
+A successful upload matches the real
+[S3 Event Notifications](https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html)
+shape, so an existing S3/MinIO event consumer works unchanged:
 
 ```json
 {
@@ -485,111 +418,70 @@ Deletion and virus-quarantine events currently use a simpler, ad-hoc shape inste
 ```text
 application/
   controllers/S3.php          S3-compatible REST API (buckets/objects)
-  controllers/Internal.php    presign (incl. presign-with-token), backend upload, bucket policy, event debug
+  controllers/Internal.php    presign, backend upload, bucket policy, event debug
   controllers/Health.php      /healthz
-  controllers/Cronjobs.php    Option 3: HTTP-triggered event drain (GET /cronjobs/process)
-  controllers/Setup.php       Option 3: HTTP-triggered admin creation (GET /setup/create-admin),
-                               for hosts with no SSH/CLI access to run cli/create_admin.php
-  controllers/Cli_migrate.php CLI-only: runs CI migrations to latest (cli/migrate.php calls it)
+  controllers/Cronjobs.php    Option 3: HTTP-triggered event drain
+  controllers/Setup.php       Option 3: HTTP-triggered admin creation
+  controllers/Cli_migrate.php CLI-only: runs CI migrations to latest
   controllers/admin/          Admin panel controllers (Auth, Dashboard, Buckets, Objects, Events)
   core/MY_Controller.php      S3/Internal API auth dispatch (both schemes) + CORS + audit log
-  core/Admin_Controller.php   Admin panel base controller — session auth + CSRF, unrelated to MY_Controller
+  core/Admin_Controller.php   Admin panel base controller — session auth + CSRF
   libraries/Sigv4_signer.php      OS3-HMAC-SHA256 signer/verifier
   libraries/Aws_sigv4_signer.php  real AWS SigV4 signer/verifier
   libraries/Filesystem_driver.php object storage on disk
   libraries/Image_processor.php   thumbnailing (GD)
   libraries/Virus_scanner.php     ClamAV client
-  libraries/Redis_queue.php       event queue (Predis) — unused/optional for Option 3
+  libraries/Redis_queue.php       event queue (Predis) — unused for Option 3
   models/                     Bucket_model, Object_model, Event_model, Admin_model, Access_token_model
-  migrations/                 CI migrations — schema changes since the admin panel go here,
-                               not db/schema.sql (see Admin panel section above)
+  migrations/                 CI migrations — schema changes since the admin panel go here
   views/admin/                Admin panel views (Tailwind-styled)
 cli/
-  migrate.php       creates DB + applies db/schema.sql, then runs CI migrations (Options 1/2 only)
-  seed.php          seeds the access_keys table from .env (Options 1/2 only)
-  create_admin.php  seeds/resets one admin panel login (see Admin panel section above)
-  worker_lib.php    shared event-processing logic — also included directly by
-                    Cronjobs.php, so all 3 options run identical processing code
+  migrate.php       creates DB + applies db/schema.sql, then runs CI migrations
+  seed.php          seeds the access_keys table from .env
+  create_admin.php  seeds/resets one admin panel login
+  worker_lib.php    shared event-processing logic (used by all 3 options)
   worker.php        Option 1: long-running daemon entrypoint (BLPOP loop)
   worker_cron.php   Option 2: drain-and-exit entrypoint, invoked by cron
-.htaccess       Option 3 (and any plain-Apache deploy): front-controller routing +
-                Authorization-header fix, since there's no vhost config to put it in
-storage/private/ Option 3's object storage — a plain folder, not a Docker volume;
-                  blocked from direct web access by storage/.htaccess
-db/schema.sql   MySQL schema baseline (idempotent — CREATE TABLE IF NOT EXISTS); also what
-                you import by hand via phpMyAdmin for Option 3. Frozen as-is — schema
-                changes since the admin panel go through application/migrations/ instead.
-assets/         Admin panel static assets — admin.src.css (Tailwind input), admin.css
-                (built output), admin_sidebar.js, admin_tree.js, self-hosted icon font
+.htaccess         Front-controller routing + Authorization-header fix for plain Apache
+storage/private/  Option 3's object storage — a plain folder, blocked by storage/.htaccess
+db/schema.sql     MySQL schema baseline — frozen; later changes go through migrations/
+assets/           Admin panel static assets (Tailwind CSS, JS, icon font)
 docker/
-  app/                Option 1 — PHP-FPM image + entrypoint
-  nginx/              Option 1 — nginx vhost config
-  worker/             Option 1 — daemon worker image
-  apache/             Option 2 — Apache (mod_php) image, vhost, entrypoint, upload-size ini
-                      (vhost/php.ini reused as-is by Option 3's Dockerfile)
-  worker-cron/        Option 2 — cron worker image, crontab, entrypoint
-  shared-hosting/apache/     Option 3 sim — Apache image with NO entrypoint at all
-                             (unlike docker/apache/, on purpose — see its Dockerfile)
-  shared-hosting/cron-wget/  Option 3 sim — minimal wget+cron image (no PHP at all,
-                             mirrors what a real cPanel cron job can actually do)
-docker-compose.yml               Option 1 (nginx + daemon worker)
-docker-compose.apache.yml        Option 2 (Apache + cron worker)
-docker-compose.shared-hosting.yml Option 3 simulation (Apache w/ no entrypoint + wget-only cron)
+  app/, nginx/, worker/       Option 1 images/config
+  apache/, worker-cron/       Option 2 images/config
+  shared-hosting/             Option 3 simulation images (no entrypoint, wget-only cron)
+docker-compose*.yml           Options 1/2/3
 docs/
   plans.md                             full design doc + roadmap (tiếng Việt)
   plans_v2.md                          admin panel design doc (tiếng Việt)
   OpenS3.postman_collection.json       API reference / Postman collection
-  AWS_S3_Integration_Best_Practices.md the 3 usecases this implements
+  AWS_S3_Integration_Best_Practices.md the 3 upload usecases this implements
 ```
 
 ## Development notes
 
-- `application/` and `cli/` are bind-mounted into every Docker option's containers —
-  editing PHP on the host takes effect immediately, no rebuild needed. Rebuild
-  (`docker compose up -d --build`, or the `-f docker-compose.apache.yml` /
-  `-f docker-compose.shared-hosting.yml` equivalent) only after changing a `Dockerfile`,
-  vhost/crontab config, or `composer.json`.
-- `docker compose logs -f app worker` (Option 1) / `... -f docker-compose.apache.yml logs
-  -f apache worker-cron` (Option 2) / `... -f docker-compose.shared-hosting.yml logs -f
-  apache-shared cron-wget` (Option 3 sim) for live logs.
-- **Schema changes now go through CI migrations, not `db/schema.sql`.** That file is
-  frozen as the pre-admin-panel baseline (`application/migrations/*_baseline_schema.php`
-  recreates it verbatim so the `migrations` table has a starting point). To add a column
-  or table: `php index.php cli_migrate run` applies pending migrations locally the same
-  way `cli/migrate.php` does it on container start — just add a new timestamped file
-  under `application/migrations/` instead of editing `db/schema.sql`.
-- Gotchas this project already works around (all discovered by testing against a real
-  server/SDK, not just reading docs):
-  - **Apache doesn't put the `Authorization` header into `$_SERVER` by default**
-    (`docker/apache/000-default.conf`, `.htaccess`) — needed a `RewriteRule` copying
-    `%{HTTP:Authorization}` into `HTTP_AUTHORIZATION`, since every signed request
-    depends on reading it.
-  - **`Content-Type`/`Content-Length` have no `HTTP_` prefix in `$_SERVER`**, per the
-    CGI spec both php-fpm/nginx and mod_php/Apache follow — `Sigv4_signer`/
-    `Aws_sigv4_signer::getHeader()` fall back to `$_SERVER['CONTENT_TYPE']`/
-    `CONTENT_LENGTH`. Matters because AWS SDKs commonly sign `content-type`.
-  - **Don't both place a file in `/etc/cron.d/` AND run `crontab` on it** — cron picks
-    up `/etc/cron.d/` entries automatically; also installing the same file as the
-    current user's personal crontab (which expects a different format — no leading
-    username field) makes every tick additionally fail with `<user>: not found`.
-    (`docker/worker-cron/Dockerfile`, `docker/shared-hosting/cron-wget/entrypoint.sh`.)
-  - **`STDOUT`/`STDERR` aren't defined outside the CLI SAPI** — `cli/worker_lib.php`
-    runs inside a normal web request too (`Cronjobs.php`, Option 3), so its logging goes
-    through a small `worker_log()` helper that falls back to `error_log()` there instead
-    of fataling on an undefined constant.
-  - **`ENVIRONMENT` was silently always `'development'`, in every deploy option** —
-    `index.php` checked `$_SERVER['CI_ENV']`, but PHP's default `variables_order` ini
-    doesn't populate `$_SERVER` from real process env vars (Docker's `env_file: .env`
-    sets those; `getenv()` sees them fine, `$_SERVER` doesn't). On a real host with no
-    env-var mechanism at all (plain shared hosting, Option 3), nothing set `CI_ENV`
-    anywhere, which is what surfaces as a PHP 8.2+ `E_DEPRECATED` notice rendering as a
-    visible "A PHP Error was encountered" page — production mode's `error_reporting()`
-    already excludes `E_DEPRECATED`, it just was never actually active. Fixed by (1)
-    checking `getenv('CI_ENV')` too, and (2) a small dependency-free `.env` loader at the
-    top of `index.php` that fills in `getenv()`/`$_ENV` from the `.env` file for anything
-    not already set as a real env var — the only thing that makes `CI_ENV`, `DB_HOST`,
-    `ACCESS_KEY_ID`, etc. resolve at all on a plain (non-Docker) shared-hosting deploy.
-- ClamAV is optional and commented out in every compose file by default — uncomment the
-  `clamav` service and volume, and set `ENABLE_VIRUS_SCAN=true`, to turn it on. (Options
-  1/2 only — no ClamAV story for Option 3, host it separately and point
-  `CLAMAV_HOST`/`CLAMAV_PORT` at it if you want scanning there.)
+- `application/` and `cli/` are bind-mounted — editing PHP on the host takes effect
+  immediately. Rebuild (`docker compose up -d --build`) only after changing a
+  `Dockerfile`, vhost/crontab config, or `composer.json`.
+- `docker compose logs -f app worker` for live logs (swap service names per option).
+- **Schema changes go through CI migrations, not `db/schema.sql`** (frozen as the
+  pre-admin-panel baseline). Add a new timestamped file under
+  `application/migrations/`; `php index.php cli_migrate run` applies pending ones
+  locally the same way `cli/migrate.php` does on container start.
+- Gotchas this project already works around:
+  - **Apache doesn't forward `Authorization` into `$_SERVER` by default** — fixed via
+    a `RewriteRule` in `.htaccess` (every signed request depends on reading it).
+  - **`Content-Type`/`Content-Length` have no `HTTP_` prefix in `$_SERVER`** (CGI spec)
+    — the SigV4 signers fall back to `$_SERVER['CONTENT_TYPE']`/`CONTENT_LENGTH`.
+  - **Don't place a file in both `/etc/cron.d/` and the user's `crontab`** — the format
+    differs (leading username field), so one of them fails silently every tick.
+  - **`STDOUT`/`STDERR` aren't defined outside the CLI SAPI** — `worker_lib.php` runs
+    inside web requests too (`Cronjobs.php`), so logging goes through `worker_log()`,
+    which falls back to `error_log()` instead of fataling.
+  - **`ENVIRONMENT` was silently always `'development'`** — PHP's default
+    `variables_order` doesn't populate `$_SERVER` from process env vars, so
+    `$_SERVER['CI_ENV']` never resolved. Fixed by also checking `getenv('CI_ENV')`,
+    plus a small dependency-free `.env` loader in `index.php` for hosts with no
+    env-var mechanism at all (plain shared hosting).
+- ClamAV is optional, commented out by default — uncomment the `clamav` service/volume
+  and set `ENABLE_VIRUS_SCAN=true` (Options 1/2 only; host it separately for Option 3).

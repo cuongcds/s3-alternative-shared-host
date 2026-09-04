@@ -1,5 +1,7 @@
 # Open-S3
 
+**[View the project page →](https://cuongcds.github.io/s3-alternative-shared-host/)**
+
 A self-hosted, S3-compatible object storage service built on CodeIgniter 3 — a drop-in
 replacement for AWS S3 for a **single fixed-credential account** with **multi-bucket**
 support. See [`docs/plans.md`](docs/plans.md) for the full design/roadmap,

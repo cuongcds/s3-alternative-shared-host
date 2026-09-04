@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open-S3 — self-hosted, S3-compatible object storage</title>
+<script>
+  (function () {
+    var saved = localStorage.getItem('open-s3-theme');
+    var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
+
+<meta name="description" content="A self-hosted, S3-compatible object storage service built on PHP/CodeIgniter 3. Real AWS SigV4 support — unmodified AWS SDKs just work. MIT licensed.">
+<meta property="og:title" content="Open-S3 — self-hosted, S3-compatible object storage">
+<meta property="og:description" content="Point any AWS SDK at your own server. Real SigV4 auth, presigned URLs, event webhooks, admin panel. Runs on Docker or plain shared hosting.">
+<meta property="og:type" content="website">
+
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#0a0e14;
+  --bg-raised:#0d1219;
+  --panel:#111722;
+  --panel-2:#0d131c;
+  --line:#1e2733;
+  --line-soft:#161e29;
+  --text:#dce3ea;
+  --text-dim:#7d8a99;
+  --text-faint:#4d5766;
+  --amber:#f0a020;
+  --amber-dim:#a86f16;
+  --amber-hover:#ffb339;
+  --amber-ink:#1a1002;
+  --green:#5fd97a;
+  --red:#e2574c;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  --maxw:1080px;
+  --radius:6px;
+}
+html[data-theme="light"]{
+  --bg:#f7f5f0;
+  --bg-raised:#f1efe8;
+  --panel:#ffffff;
+  --panel-2:#efece4;
+  --line:#ddd8ca;
+  --line-soft:#e7e2d4;
+  --text:#20231f;
+  --text-dim:#5c6259;
+  --text-faint:#8e9288;
+  --amber:#b5680a;
+  --amber-dim:#8a5008;
+  --amber-ink:#fff8ec;
+  --green:#1f8f4d;
+  --red:#c23a2f;
+  --amber-hover:#d97e0e;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  transition:background .2s ease, color .2s ease;
+}
+a{color:var(--amber);text-decoration:none}
+a:hover{text-decoration:underline}
+::selection{background:var(--amber);color:var(--amber-ink)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+.mono{font-family:var(--mono)}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+/* ============ Top bar ============ */
+.topbar{
+  border-bottom:1px solid var(--line);
+  background:color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter:blur(6px);
+  position:sticky;top:0;z-index:30;
+}
+.topbar .wrap{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 24px;
+}
+.brand{
+  display:flex;align-items:center;gap:9px;
+  font-family:var(--mono);font-weight:600;font-size:.95rem;color:var(--text);
+}
+.brand .lamp{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent)}
+.brand .ver{color:var(--text-faint);font-weight:400}
+.topnav{display:flex;gap:22px;align-items:center}
+.topnav a{color:var(--text-dim);font-size:.86rem;font-family:var(--mono)}
+.topnav a:hover{color:var(--text);text-decoration:none}
+.topnav .gh-btn{
+  color:var(--amber-ink);background:var(--amber);
+  padding:7px 14px;border-radius:var(--radius);font-weight:600;
+}
+.topnav .gh-btn:hover{background:var(--amber-hover);text-decoration:none}
+.theme-toggle{
+  border:1px solid var(--line);background:var(--panel);color:var(--text-dim);
+  font-family:var(--mono);font-size:.8rem;line-height:1;
+  width:34px;height:34px;border-radius:var(--radius);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:border-color .15s ease,color .15s ease;
+}
+.theme-toggle:hover{border-color:var(--amber-dim);color:var(--text)}
+@media(max-width:640px){ .topnav a:not(.gh-btn):not(.theme-toggle){display:none} }
+
+/* ============ Hero ============ */
+.hero{padding:72px 0 56px;border-bottom:1px solid var(--line)}
+.eyebrow{
+  font-family:var(--mono);font-size:.78rem;color:var(--amber);
+  letter-spacing:.06em;margin:0 0 16px;display:flex;align-items:center;gap:8px;
+}
+.eyebrow::before{content:"$";color:var(--text-faint)}
+h1{
+  font-family:var(--mono);
+  font-size:clamp(1.9rem, 4.2vw, 3rem);
+  font-weight:700;
+  line-height:1.15;
+  letter-spacing:-.01em;
+  margin:0 0 18px;
+  max-width:780px;
+}
+h1 .accent{color:var(--amber)}
+.lede{
+  font-size:1.08rem;color:var(--text-dim);max-width:600px;margin:0 0 30px;
+}
+.lede strong{color:var(--text);font-weight:600}
+.hero-ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:44px}
+.btn{
+  font-family:var(--mono);font-size:.88rem;font-weight:600;
+  padding:11px 20px;border-radius:var(--radius);
+  border:1px solid var(--line);
+  display:inline-flex;align-items:center;gap:8px;
+  transition:border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.btn:hover{transform:translateY(-1px);text-decoration:none}
+.btn-primary{background:var(--amber);color:var(--amber-ink);border-color:var(--amber)}
+.btn-primary:hover{background:var(--amber-hover)}
+.btn-ghost{background:var(--panel);color:var(--text)}
+.btn-ghost:hover{border-color:var(--amber-dim)}
+
+/* ---- terminal signature ---- */
+.term{
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  box-shadow:0 20px 50px -20px rgba(0,0,0,.6);
+}
+.term-bar{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 14px;
+  border-bottom:1px solid var(--line);
+  background:var(--panel);
+}
+.term-dot{width:10px;height:10px;border-radius:50%;background:var(--line-soft)}
+.term-title{font-family:var(--mono);font-size:.74rem;color:var(--text-faint);margin-left:6px}
+.term-body{padding:20px 22px 22px;font-family:var(--mono);font-size:.86rem;overflow-x:auto}
+.term-row{margin-bottom:16px}
+.term-row:last-child{margin-bottom:0}
+.term-label{
+  display:flex;align-items:center;gap:8px;
+  font-size:.72rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;
+  margin-bottom:6px;
+}
+.term-label .sw{width:6px;height:6px;border-radius:50%}
+.term-label.aws .sw{background:var(--text-faint)}
+.term-label.os3 .sw{background:var(--green)}
+.term-cmd{white-space:pre;color:var(--text-dim)}
+.term-cmd .prompt{color:var(--text-faint)}
+.term-cmd .diff{color:var(--amber);font-weight:600}
+.term-out{color:var(--text-faint);margin-top:4px}
+.term-out .ok{color:var(--green)}
+
+/* ============ Sections ============ */
+.section{padding:56px 0;border-bottom:1px solid var(--line)}
+.section-kicker{
+  font-family:var(--mono);font-size:.76rem;color:var(--text-faint);
+  text-transform:uppercase;letter-spacing:.1em;margin:0 0 8px;
+}
+.section h2{
+  font-family:var(--mono);font-size:1.5rem;font-weight:700;margin:0 0 12px;
+  letter-spacing:-.01em;
+}
+.section .section-desc{color:var(--text-dim);max-width:640px;margin:0 0 36px;font-size:.98rem}
+
+/* ---- feature spec grid ---- */
+.spec-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.spec{background:var(--panel);padding:22px}
+.spec .k{font-family:var(--mono);font-size:.72rem;color:var(--amber);text-transform:uppercase;letter-spacing:.08em;margin:0 0 10px}
+.spec h3{margin:0 0 8px;font-size:1.02rem;font-weight:600;color:var(--text)}
+.spec p{margin:0;color:var(--text-dim);font-size:.88rem}
+.spec code{font-family:var(--mono);font-size:.82rem;color:var(--text)}
+
+/* ---- deploy options table ---- */
+.deploy-table{width:100%;border-collapse:collapse;font-size:.86rem}
+.deploy-table th,.deploy-table td{
+  text-align:left;padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:top;
+}
+.deploy-table thead th{
+  font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text-faint);border-bottom:1px solid var(--line-soft);background:var(--panel-2);
+}
+.deploy-table tbody th{
+  font-family:var(--mono);font-weight:600;color:var(--amber);white-space:nowrap;font-size:.8rem;
+}
+.deploy-table td{color:var(--text-dim)}
+.deploy-table tr:last-child td, .deploy-table tr:last-child th{border-bottom:none}
+.table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+.table-scroll .deploy-table{min-width:640px}
+
+/* ---- auth schemes ---- */
+.scheme-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:680px){.scheme-grid{grid-template-columns:1fr}}
+.scheme{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:22px}
+.scheme .tag{
+  display:inline-block;font-family:var(--mono);font-size:.72rem;
+  padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--text-dim);
+  margin-bottom:12px;
+}
+.scheme h3{margin:0 0 8px;font-family:var(--mono);font-size:1rem}
+.scheme p{margin:0;color:var(--text-dim);font-size:.88rem}
+
+/* ---- architecture ---- */
+.arch{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+  padding:24px;font-family:var(--mono);font-size:.82rem;color:var(--text-dim);
+  overflow-x:auto;white-space:pre;line-height:1.7;
+}
+.arch .node{color:var(--text)}
+.arch .amber{color:var(--amber)}
+
+/* ---- CTA ---- */
+.cta{padding:64px 0;text-align:center}
+.cta h2{font-family:var(--mono);font-size:1.7rem;margin:0 0 12px}
+.cta p{color:var(--text-dim);margin:0 0 28px}
+.cta .hero-ctas{justify-content:center}
+
+footer{padding:28px 0;font-family:var(--mono);font-size:.78rem;color:var(--text-faint)}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand"><span class="lamp"></span>open-s3 <span class="ver">v1</span></div>
+    <nav class="topnav">
+      <a href="#features">Features</a>
+      <a href="#deploy">Deploy</a>
+      <a href="#auth">Auth</a>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark/light mode">
+        <span id="theme-icon">☀</span>
+      </button>
+      <a class="gh-btn" href="https://github.com/cuongcds/s3-alternative-shared-host" target="_blank" rel="noopener">View on GitHub</a>
+    </nav>
+  </div>
+</div>
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">MIT licensed · PHP / CodeIgniter 3</p>
+    <h1>An S3-compatible bucket,<br>running on <span class="accent">your own server</span>.</h1>
+    <p class="lede">
+      Open-S3 speaks real AWS SigV4. Point <strong>any unmodified AWS SDK</strong> —
+      <code class="mono">aws-cli</code>, <code class="mono">boto3</code>,
+      <code class="mono">@aws-sdk/client-s3</code> — at your own endpoint and it just works.
+      No custom client, no vendor lock-in.
+    </p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="https://github.com/cuongcds/s3-alternative-shared-host" target="_blank" rel="noopener">Get the source →</a>
+      <a class="btn btn-ghost" href="#deploy">See deploy options</a>
+    </div>
+
+    <div class="term">
+      <div class="term-bar">
+        <span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span>
+        <span class="term-title">same aws-cli, one flag different</span>
+      </div>
+      <div class="term-body">
+        <div class="term-row">
+          <div class="term-label aws"><span class="sw"></span>real aws</div>
+          <div class="term-cmd"><span class="prompt">$</span> aws s3 cp ./photo.jpg s3://my-bucket/photo.jpg</div>
+        </div>
+        <div class="term-row">
+          <div class="term-label os3"><span class="sw"></span>open-s3</div>
+          <div class="term-cmd"><span class="prompt">$</span> aws <span class="diff">--endpoint-url https://s3.your-domain.com</span> s3 cp ./photo.jpg s3://my-bucket/photo.jpg</div>
+          <div class="term-out">upload: ./photo.jpg to s3://my-bucket/photo.jpg <span class="ok">✓</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <div class="wrap">
+    <p class="section-kicker">What it does</p>
+    <h2>Everything a bucket needs to earn its name</h2>
+    <p class="section-desc">
+      Built for a single fixed-credential account with multi-bucket support — not a
+      multi-tenant platform. If that's your shape, this covers the essentials.
+    </p>
+    <div class="spec-grid">
+      <div class="spec">
+        <p class="k">REST API</p>
+        <h3>S3-compatible core</h3>
+        <p>Bucket and object CRUD, <code>ListObjectsV2</code>-style listing, Range requests, and full object versioning.</p>
+      </div>
+      <div class="spec">
+        <p class="k">Auth</p>
+        <h3>Real AWS SigV4</h3>
+        <p>Requests sign with the actual <code>AWS4-HMAC-SHA256</code> spec, auto-detected alongside the project's own scheme — no SDK patching.</p>
+      </div>
+      <div class="spec">
+        <p class="k">Uploads</p>
+        <h3>Presigned URLs</h3>
+        <p>Direct browser upload/download without routing bytes through your app server.</p>
+      </div>
+      <div class="spec">
+        <p class="k">Pipeline</p>
+        <h3>Validation & scanning</h3>
+        <p>Size/MIME checks, optional ClamAV virus scanning, and automatic image thumbnailing on write.</p>
+      </div>
+      <div class="spec">
+        <p class="k">Events</p>
+        <h3>Webhooks, S3-shaped</h3>
+        <p>Every write/delete queues an event; webhook payloads match real S3 Event Notifications, so existing consumers work unchanged.</p>
+      </div>
+      <div class="spec">
+        <p class="k">Access</p>
+        <h3>Per-bucket policy</h3>
+        <p>CORS, public-read buckets, size caps, and MIME allowlists — configured per bucket, like real S3.</p>
+      </div>
+      <div class="spec">
+        <p class="k">Delegation</p>
+        <h3>Short-term tokens</h3>
+        <p>Issue scoped, time-limited tokens for a single bucket — no need to hand out the real access key.</p>
+      </div>
+      <div class="spec">
+        <p class="k">Operations</p>
+        <h3>Admin panel</h3>
+        <p>Bucket management, an object tree browser with inline preview, and event status with manual redispatch — separate login from the API.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="auth">
+  <div class="wrap">
+    <p class="section-kicker">Authentication</p>
+    <h2>Two schemes, auto-detected per request</h2>
+    <p class="section-desc">
+      Sign with whichever fits — the server figures out which scheme a request used and verifies it accordingly.
+    </p>
+    <div class="scheme-grid">
+      <div class="scheme">
+        <span class="tag mono">AWS4-HMAC-SHA256</span>
+        <h3>The real SigV4 spec</h3>
+        <p>Unmodified AWS SDKs authenticate exactly as they would against AWS — set <code class="mono">endpoint</code> and <code class="mono">forcePathStyle: true</code>, keep your existing code.</p>
+      </div>
+      <div class="scheme">
+        <span class="tag mono">OS3-HMAC-SHA256</span>
+        <h3>This project's own scheme</h3>
+        <p>Header or presigned-URL query auth for clients calling the API directly, without pulling in a full AWS SDK.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="deploy">
+  <div class="wrap">
+    <p class="section-kicker">Deployment</p>
+    <h2>Three ways to run it — same app, same database</h2>
+    <p class="section-desc">
+      Pick the one that matches your infrastructure. Options 1 and 2 are Docker; option 3
+      needs nothing but a cPanel-style shared host.
+    </p>
+    <div class="table-scroll">
+      <table class="deploy-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Option 1 — nginx</th>
+            <th>Option 2 — Apache</th>
+            <th>Option 3 — shared hosting</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Web server</th>
+            <td>nginx + PHP-FPM</td>
+            <td>Apache + mod_php</td>
+            <td>Whatever your host runs</td>
+          </tr>
+          <tr>
+            <th>Event worker</th>
+            <td>Long-running daemon (near-instant)</td>
+            <td>Cron every minute</td>
+            <td>HTTP-triggered drain via cron <code class="mono">wget</code></td>
+          </tr>
+          <tr>
+            <th>Redis</th>
+            <td>Required</td>
+            <td>Required</td>
+            <td>Not available — events read straight from the database</td>
+          </tr>
+          <tr>
+            <th>Docker</th>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td>None at all</td>
+          </tr>
+          <tr>
+            <th>Best for</th>
+            <td>Lowest event latency, standard ops</td>
+            <td>Simpler single-process container</td>
+            <td>You only have cPanel-style hosting</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="border-bottom:none">
+  <div class="wrap">
+    <p class="section-kicker">Architecture</p>
+    <h2>What talks to what</h2>
+    <p class="section-desc">MySQL and Redis are external dependencies this project connects to — not something the stack provisions itself.</p>
+    <div class="arch">nginx (8080) ─┬─→ <span class="node">app</span> (PHP-FPM, CodeIgniter 3) ──┬─→ <span class="amber">MySQL</span>
+              │                                    │
+              └─→ <span class="node">worker</span> (CLI, Redis consumer) ───┴─→ <span class="amber">Redis</span></div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <h2>Read the full setup guide on GitHub</h2>
+    <p>Docker quick-start, shared-hosting runbook, API reference, and the Postman collection all live in the repo.</p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="https://github.com/cuongcds/s3-alternative-shared-host" target="_blank" rel="noopener">github.com/cuongcds/s3-alternative-shared-host →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Open-S3 — MIT License</span>
+    <span>Built by <a href="https://cuongcds.github.io" target="_blank" rel="noopener">Ricky Do</a></span>
+  </div>
+</footer>
+
+<script>
+  function syncThemeIcon(theme) {
+    document.getElementById('theme-icon').textContent = theme === 'light' ? '☀' : '☾';
+  }
+  syncThemeIcon(document.documentElement.getAttribute('data-theme'));
+
+  document.getElementById('theme-toggle').addEventListener('click', function () {
+    var next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('open-s3-theme', next);
+    syncThemeIcon(next);
+  });
+</script>
+
+</body>
+</html>

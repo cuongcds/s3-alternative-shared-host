@@ -2,6 +2,16 @@
 
 <?php
 $isEdit = ($mode === 'edit');
+$bucket = array_merge(array(
+    'name' => '',
+    'versioning_enabled' => 0,
+    'is_public' => 0,
+    'allow_short_term_tokens' => 0,
+    'max_object_size' => 0,
+    'notification_url' => '',
+    'cors_config' => '',
+    'allowed_mime_types' => '',
+), (array) $bucket);
 $allowShortTermTokens = (int) $bucket['allow_short_term_tokens'];
 ?>
 <div class="flex items-center gap-3 mb-6">

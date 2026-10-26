@@ -332,7 +332,7 @@ Authorization: <signed, same as any other request>
 |---|---|---|---|
 | `versioning_enabled` | bool | `false` | Keeps every version instead of overwriting; `DELETE` without `?versionId=` inserts a delete-marker. |
 | `is_public` | bool | `false` | Object `GET`/`HEAD` needs no signature. Listing and every write still require a valid signature. |
-| `allow_short_term_tokens` | bool | `false` | Lets the admin panel mint short-term (~3h) tokens for this bucket — see [Short-term tokens](#short-term-tokens-delegated-presign). |
+| `allow_short_term_tokens` | bool | `false` | Lets the admin panel mint short-term tokens (1h–30d, chosen on generate) for this bucket — see [Short-term tokens](#short-term-tokens-delegated-presign). |
 | `cors_config` | object or `null` | `null` (no CORS) | No `cors_config` = no `Access-Control-*` headers, so cross-origin calls are blocked. Also auto-answers `OPTIONS` preflight. |
 | `notification_url` | string or `null` | `null` | Webhook the `worker` POSTs to after every write/delete — see [Event webhooks](#event-webhooks). |
 | `max_object_size` | int (bytes) | `5368709120` (5 GB) | Per-object cap; over this (or global `MAX_UPLOAD_SIZE`) gets `400 EntityTooLarge`. |
@@ -366,8 +366,8 @@ For a client you don't want to hand the real credentials to, a bucket with
 bucket only — no policy changes, no listing other buckets, no direct API calls.
 
 1. Enable it on the bucket's edit page (`/admin/buckets/{bucket}/edit`), then click
-   "Generate token" — shown once, valid for `SHORTTERM_TOKEN_TTL` seconds (default
-   10800 = 3h), revocable early.
+   "Generate token" and pick a lifetime in the popup (1h, 3h, 1d, 3d, 10d, 15d, 30d; the
+   `SHORTTERM_TOKEN_TTL` seconds value is the preselected default) — shown once, revocable early.
 2. The holder calls `POST /internal/presign-with-token` with it instead of a signed request:
 
 ```bash

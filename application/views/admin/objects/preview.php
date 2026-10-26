@@ -15,7 +15,7 @@ $treeUrl = site_url('admin/buckets/' . rawurlencode($bucket['name']) . '/objects
   <span>Size: <?php echo s3_format_bytes($object['size']); ?></span>
   <span>Content-Type: <?php echo htmlspecialchars((string) $object['content_type']); ?></span>
   <span>ETag: <?php echo htmlspecialchars($object['etag']); ?></span>
-  <span>Modified: <?php echo htmlspecialchars($object['created_at']); ?></span>
+  <span>Modified: <?php echo s3_format_datetime($object['created_at']); ?></span>
 </div>
 
 <div class="mb-4">

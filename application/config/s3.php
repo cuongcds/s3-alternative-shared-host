@@ -29,7 +29,18 @@ $config['s3_clock_skew_tolerance'] = 300;
 // generateToken() / Internal::presignWithToken()) — a delegated credential
 // that can request presigned URLs without the real Access/Secret Key. Opt-in
 // per bucket via buckets.allow_short_term_tokens.
-$config['s3_shortterm_token_ttl'] = (int) (getenv('SHORTTERM_TOKEN_TTL') ?: 10800); // 3 hours
+$config['s3_shortterm_token_ttl'] = (int) (getenv('SHORTTERM_TOKEN_TTL') ?: 10800); // default, 3 hours
+
+// Lifetimes (seconds => label) the admin can pick when generating a token.
+$config['s3_shortterm_token_ttl_options'] = array(
+    3600 => '1 hour',
+    10800 => '3 hours',
+    86400 => '1 day',
+    259200 => '3 days',
+    864000 => '10 days',
+    1296000 => '15 days',
+    2592000 => '30 days',
+);
 
 // Redis is optional — deploy option 3 (shared hosting, no Docker) has no
 // Redis available at all. Leaving REDIS_HOST empty disables it entirely:

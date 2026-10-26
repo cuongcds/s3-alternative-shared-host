@@ -130,7 +130,12 @@ class Buckets extends Admin_Controller
             redirect('admin/buckets/' . $name . '/edit');
         }
 
-        $ttl = (int) $this->config->item('s3_shortterm_token_ttl', 's3');
+        $options = $this->config->item('s3_shortterm_token_ttl_options', 's3');
+        $ttl = (int) $this->input->post('ttl');
+        if (!isset($options[$ttl])) {
+            $this->session->set_flashdata('flash_error', 'Invalid token lifetime.');
+            redirect('admin/buckets/' . $name . '/edit');
+        }
         $issued = $this->access_token_model->create($bucket['id'], $ttl);
 
         $this->session->set_flashdata('flash_success', 'Token generated — copy it now, it will not be shown again.');

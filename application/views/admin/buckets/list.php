@@ -34,7 +34,7 @@
               <?php echo htmlspecialchars($b['name']); ?>
             </a>
           </td>
-          <td class="px-4 py-3 text-gray-600"><?php echo (int) $b['object_count']; ?></td>
+          <td class="px-4 py-3 text-gray-600"><?php echo number_format((int) $b["object_count"]); ?></td>
           <td class="px-4 py-3 text-gray-600"><?php echo s3_format_bytes($b['total_size']); ?></td>
           <td class="px-4 py-3">
             <?php if ((int) $b['is_public']): ?>
@@ -44,7 +44,7 @@
             <?php endif; ?>
           </td>
           <td class="px-4 py-3 text-gray-600"><?php echo ((int) $b['versioning_enabled']) ? 'On' : 'Off'; ?></td>
-          <td class="px-4 py-3 text-gray-500"><?php echo htmlspecialchars($b['created_at']); ?></td>
+          <td class="px-4 py-3 text-gray-500"><?php echo s3_format_datetime($b['created_at']); ?></td>
           <td class="px-4 py-3 text-right space-x-3 whitespace-nowrap">
             <a href="<?php echo site_url('admin/buckets/' . $b['name'] . '/objects'); ?>"
                class="text-gray-500 hover:text-primary" title="Browse objects">

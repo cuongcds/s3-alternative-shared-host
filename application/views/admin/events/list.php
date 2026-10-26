@@ -18,7 +18,7 @@ $statuses = array('pending', 'processing', 'done', 'failed');
   <?php foreach ($statuses as $s): ?>
     <a href="<?php echo site_url('admin/events') . '?status=' . $s; ?>"
        class="rounded-full px-3 py-1 text-xs font-medium <?php echo $status === $s ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
-      <?php echo ucfirst($s); ?> (<?php echo (int) $counts[$s]; ?>)
+      <?php echo ucfirst($s); ?> (<?php echo number_format((int) $counts[$s]); ?>)
     </a>
   <?php endforeach; ?>
 </div>
@@ -58,7 +58,7 @@ $statuses = array('pending', 'processing', 'done', 'failed');
           <td class="px-4 py-3 text-gray-400 text-xs max-w-xs truncate" title="<?php echo htmlspecialchars((string) $e['last_error']); ?>">
             <?php echo htmlspecialchars((string) $e['last_error']); ?>
           </td>
-          <td class="px-4 py-3 text-gray-500"><?php echo htmlspecialchars($e['created_at']); ?></td>
+          <td class="px-4 py-3 text-gray-500"><?php echo s3_format_datetime($e['created_at']); ?></td>
           <td class="px-4 py-3 text-right">
             <?php if ($e['status'] === 'failed'): ?>
               <form method="post" action="<?php echo site_url('admin/events/' . (int) $e['id'] . '/redispatch'); ?>" class="inline">

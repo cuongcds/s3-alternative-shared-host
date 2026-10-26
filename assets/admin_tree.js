@@ -11,6 +11,18 @@
   var previewUrl = config.getAttribute('data-preview-url');
   var downloadUrl = config.getAttribute('data-download-url');
 
+  function formatDateTime(value) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(value || '');
+    return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : '—';
+  }
+
+  function formatNumber(n, decimals) {
+    return Number(n).toLocaleString('en-US', {
+      minimumFractionDigits: decimals || 0,
+      maximumFractionDigits: decimals || 0
+    });
+  }
+
   function formatBytes(bytes) {
     var units = ['B', 'KB', 'MB', 'GB', 'TB'];
     var i = 0;
@@ -19,7 +31,7 @@
       bytes /= 1024;
       i++;
     }
-    return (i === 0 ? Math.round(bytes) : bytes.toFixed(1)) + ' ' + units[i];
+    return (i === 0 ? formatNumber(Math.round(bytes)) : formatNumber(bytes, 1)) + ' ' + units[i];
   }
 
   function el(tag, className, text) {
@@ -62,7 +74,7 @@
     nameTd.appendChild(document.createTextNode(folder.name + '/'));
     tr.appendChild(nameTd);
 
-    tr.appendChild(el('td', 'px-4 py-3 text-gray-400', folder.count + ' item' + (folder.count === 1 ? '' : 's')));
+    tr.appendChild(el('td', 'px-4 py-3 text-gray-400', formatNumber(folder.count) + ' item' + (folder.count === 1 ? '' : 's')));
     tr.appendChild(el('td', 'px-4 py-3 text-gray-400', '—'));
     tr.appendChild(el('td', 'px-4 py-3 text-gray-400', '—'));
     tr.appendChild(el('td', 'px-4 py-3'));
@@ -83,7 +95,7 @@
 
     tr.appendChild(el('td', 'px-4 py-3 text-gray-600', formatBytes(file.size)));
     tr.appendChild(el('td', 'px-4 py-3 text-gray-500', file.content_type || '—'));
-    tr.appendChild(el('td', 'px-4 py-3 text-gray-500', file.created_at || '—'));
+    tr.appendChild(el('td', 'px-4 py-3 text-gray-500', formatDateTime(file.created_at)));
 
     var actionsTd = el('td', 'px-4 py-3 text-right space-x-3 whitespace-nowrap');
     var previewLink = document.createElement('a');

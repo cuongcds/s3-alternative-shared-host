@@ -36,7 +36,7 @@ function s3_format_bytes($bytes)
         $bytes /= 1024;
         $i++;
     }
-    return ($i === 0 ? (int) $bytes : round($bytes, 1)) . ' ' . $units[$i];
+    return ($i === 0 ? number_format((int) $bytes) : number_format(round($bytes, 1), 1)) . ' ' . $units[$i];
 }
 
 function s3_list_bucket_result_xml($bucketName, array $objects, $prefix, $maxKeys, $isTruncated)
@@ -58,4 +58,13 @@ function s3_list_bucket_result_xml($bucketName, array $objects, $prefix, $maxKey
     }
     $xml .= '</ListBucketResult>';
     return $xml;
+}
+
+/**
+ * Admin display format: dd/mm/yyyy HH:mm. Empty/invalid values render as "—".
+ */
+function s3_format_datetime($value)
+{
+    $ts = $value ? strtotime((string) $value) : false;
+    return $ts === false ? '—' : date('d/m/Y H:i', $ts);
 }

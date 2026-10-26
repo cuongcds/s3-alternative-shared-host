@@ -8,7 +8,7 @@
   </div>
   <div class="bg-white rounded-lg shadow p-5">
     <div class="text-xs text-gray-400 mb-1">Objects</div>
-    <div class="text-2xl font-semibold text-secondary"><?php echo (int) $totalObjects; ?></div>
+    <div class="text-2xl font-semibold text-secondary"><?php echo number_format((int) $totalObjects); ?></div>
   </div>
   <div class="bg-white rounded-lg shadow p-5">
     <div class="text-xs text-gray-400 mb-1">Total size</div>
@@ -29,7 +29,7 @@
       <?php foreach ($eventCounts as $status => $count): ?>
         <li class="flex items-center justify-between">
           <span class="text-gray-600"><?php echo ucfirst($status); ?></span>
-          <span class="font-medium text-secondary"><?php echo (int) $count; ?></span>
+          <span class="font-medium text-secondary"><?php echo number_format((int) $count); ?></span>
         </li>
       <?php endforeach; ?>
     </ul>
@@ -52,7 +52,7 @@
               <span class="text-gray-400">&middot; <?php echo htmlspecialchars($a['bucket']); ?></span>
             <?php endif; ?>
           </span>
-          <span class="text-gray-400 text-xs shrink-0"><?php echo htmlspecialchars($a['created_at']); ?></span>
+          <span class="text-gray-400 text-xs shrink-0"><?php echo s3_format_datetime($a['created_at']); ?></span>
         </li>
       <?php endforeach; ?>
     </ul>

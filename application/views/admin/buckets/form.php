@@ -107,7 +107,7 @@ $allowShortTermTokens = (int) $bucket['allow_short_term_tokens'];
   <p class="text-xs text-gray-400 mb-4">
     Lets a less-trusted client call <code>POST /internal/presign-with-token</code> to get a
     presigned URL for this bucket only, without ever seeing the real Access/Secret Key.
-    Each token is valid for a fixed lifetime (~3 hours) after which it stops working on its own.
+    Each token is valid for the lifetime chosen when it is generated, after which it stops working on its own.
   </p>
 
   <?php if (!empty($new_token)): ?>
@@ -120,12 +120,35 @@ $allowShortTermTokens = (int) $bucket['allow_short_term_tokens'];
   <?php if (!(int) $bucket['allow_short_term_tokens']): ?>
     <p class="text-xs text-gray-400">Enable &ldquo;Allow short-term tokens&rdquo; above and save first.</p>
   <?php else: ?>
-    <form method="post" action="<?php echo site_url('admin/buckets/' . $bucket['name'] . '/tokens'); ?>" class="mb-4">
-      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-      <button type="submit" class="rounded bg-primary text-white text-sm font-medium px-4 py-2 hover:opacity-90">
-        Generate token
-      </button>
-    </form>
+    <button type="button" id="token-modal-open" class="mb-4 rounded bg-primary text-white text-sm font-medium px-4 py-2 hover:opacity-90">
+      Generate token
+    </button>
+
+    <div id="token-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="token-modal-title">
+      <form method="post" action="<?php echo site_url('admin/buckets/' . $bucket['name'] . '/tokens'); ?>"
+            class="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+        <h3 id="token-modal-title" class="text-base font-semibold text-secondary mb-1">Generate short-term token</h3>
+        <p class="text-xs text-gray-400 mb-4">Choose how long the token stays valid.</p>
+        <?php
+        $ttlOptions = $this->config->item('s3_shortterm_token_ttl_options', 's3');
+        $ttlDefault = (int) $this->config->item('s3_shortterm_token_ttl', 's3');
+        ?>
+        <div class="grid grid-cols-2 gap-2 mb-5">
+          <?php foreach ($ttlOptions as $seconds => $label): ?>
+            <label class="flex items-center gap-2 rounded border border-gray-300 px-3 py-2 text-sm cursor-pointer has-[:checked]:border-primary has-[:checked]:bg-brand-muted">
+              <input type="radio" name="ttl" value="<?php echo (int) $seconds; ?>" class="accent-primary"
+                     <?php echo ((int) $seconds === $ttlDefault) ? 'checked' : ''; ?>>
+              <?php echo htmlspecialchars($label); ?>
+            </label>
+          <?php endforeach; ?>
+        </div>
+        <div class="flex justify-end gap-3">
+          <button type="button" id="token-modal-cancel" class="rounded border border-gray-300 text-sm px-4 py-2 hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="rounded bg-primary text-white text-sm font-medium px-4 py-2 hover:opacity-90">Generate</button>
+        </div>
+      </form>
+    </div>
 
     <?php if (empty($tokens)): ?>
       <p class="text-xs text-gray-400">No active tokens.</p>
@@ -141,8 +164,8 @@ $allowShortTermTokens = (int) $bucket['allow_short_term_tokens'];
         <tbody>
           <?php foreach ($tokens as $t): ?>
             <tr class="border-b border-gray-100">
-              <td class="py-2 text-gray-600"><?php echo htmlspecialchars($t['created_at']); ?></td>
-              <td class="py-2 text-gray-600"><?php echo htmlspecialchars($t['expires_at']); ?></td>
+              <td class="py-2 text-gray-600"><?php echo s3_format_datetime($t['created_at']); ?></td>
+              <td class="py-2 text-gray-600"><?php echo s3_format_datetime($t['expires_at']); ?></td>
               <td class="py-2 text-right">
                 <form method="post" action="<?php echo site_url('admin/buckets/' . $bucket['name'] . '/tokens/' . $t['id'] . '/revoke'); ?>">
                   <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
@@ -156,4 +179,19 @@ $allowShortTermTokens = (int) $bucket['allow_short_term_tokens'];
     <?php endif; ?>
   <?php endif; ?>
 </div>
+<?php endif; ?>
+
+<?php if ($isEdit && $allowShortTermTokens): ?>
+<script>
+(function () {
+  var modal = document.getElementById('token-modal');
+  var openBtn = document.getElementById('token-modal-open');
+  if (!modal || !openBtn) { return; }
+  function toggle(show) { modal.classList.toggle('hidden', !show); }
+  openBtn.addEventListener('click', function () { toggle(true); });
+  document.getElementById('token-modal-cancel').addEventListener('click', function () { toggle(false); });
+  modal.addEventListener('click', function (e) { if (e.target === modal) { toggle(false); } });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { toggle(false); } });
+})();
+</script>
 <?php endif; ?>

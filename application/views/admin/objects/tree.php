@@ -3,7 +3,7 @@
   <a href="<?php echo site_url('admin/buckets'); ?>" class="text-gray-400 hover:text-gray-700">
     <i class="material-icons align-middle">arrow_back</i>
   </a>
-  <h1 class="text-xl font-semibold text-gray-800"><?php echo htmlspecialchars($bucket['name']); ?></h1>
+  <h1 class="text-xl font-semibold text-secondary"><?php echo htmlspecialchars($bucket['name']); ?></h1>
 </div>
 
 <nav id="tree-breadcrumb" class="text-sm text-gray-500 mb-4 flex items-center gap-1 flex-wrap"></nav>

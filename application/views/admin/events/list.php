@@ -8,16 +8,16 @@ $statusBadge = array(
 );
 $statuses = array('pending', 'processing', 'done', 'failed');
 ?>
-<h1 class="text-xl font-semibold text-gray-800 mb-6">Events</h1>
+<h1 class="text-xl font-semibold text-secondary mb-6">Events</h1>
 
 <div class="flex items-center gap-2 mb-6">
   <a href="<?php echo site_url('admin/events'); ?>"
-     class="rounded-full px-3 py-1 text-xs font-medium <?php echo $status === '' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
+     class="rounded-full px-3 py-1 text-xs font-medium <?php echo $status === '' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
     All
   </a>
   <?php foreach ($statuses as $s): ?>
     <a href="<?php echo site_url('admin/events') . '?status=' . $s; ?>"
-       class="rounded-full px-3 py-1 text-xs font-medium <?php echo $status === $s ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
+       class="rounded-full px-3 py-1 text-xs font-medium <?php echo $status === $s ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
       <?php echo ucfirst($s); ?> (<?php echo (int) $counts[$s]; ?>)
     </a>
   <?php endforeach; ?>
@@ -45,7 +45,7 @@ $statuses = array('pending', 'processing', 'done', 'failed');
       <?php foreach ($events as $e): ?>
         <tr class="hover:bg-gray-50">
           <td class="px-4 py-3">
-            <div class="font-medium text-gray-800"><?php echo htmlspecialchars($e['bucket_name']); ?></div>
+            <div class="font-medium text-secondary"><?php echo htmlspecialchars($e['bucket_name']); ?></div>
             <div class="text-gray-400 text-xs break-all"><?php echo htmlspecialchars($e['object_key']); ?></div>
           </td>
           <td class="px-4 py-3 text-gray-600"><?php echo htmlspecialchars($e['event_type']); ?></td>
@@ -63,7 +63,7 @@ $statuses = array('pending', 'processing', 'done', 'failed');
             <?php if ($e['status'] === 'failed'): ?>
               <form method="post" action="<?php echo site_url('admin/events/' . (int) $e['id'] . '/redispatch'); ?>" class="inline">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-                <button type="submit" class="text-gray-500 hover:text-gray-900" title="Redispatch">
+                <button type="submit" class="text-gray-500 hover:text-primary" title="Redispatch">
                   <i class="material-icons text-lg align-middle">replay</i>
                 </button>
               </form>

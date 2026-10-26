@@ -4,15 +4,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Open-S3 Admin</title>
+<title>Open S3 Admin</title>
+<link rel="icon" href="<?php echo base_url('assets/brand/favicon.ico'); ?>" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="<?php echo base_url('assets/brand/favicon-32x32.png'); ?>">
+<link rel="icon" type="image/png" sizes="16x16" href="<?php echo base_url('assets/brand/favicon-16x16.png'); ?>">
+<link rel="apple-touch-icon" href="<?php echo base_url('assets/brand/apple-touch-icon.png'); ?>">
+<link rel="manifest" href="<?php echo base_url('assets/brand/site.webmanifest'); ?>">
+<meta name="theme-color" content="#1a273d">
+<link rel="stylesheet" href="<?php echo base_url('assets/brand/theme-variables.css'); ?>">
 <link rel="stylesheet" href="<?php echo base_url('assets/admin.css'); ?>">
 </head>
-<body class="h-full bg-gray-50 text-gray-900">
+<body class="h-full bg-brand-bg text-brand-text">
 <div class="flex h-full">
-  <aside id="admin-sidebar" class="flex flex-col bg-gray-900 text-gray-100 shrink-0 transition-all duration-200">
-    <div class="flex items-center justify-between px-4 h-14 border-b border-gray-800">
-      <span class="sidebar-label font-semibold text-sm tracking-wide whitespace-nowrap overflow-hidden">Open-S3 Admin</span>
-      <button id="sidebar-toggle" type="button" class="p-1.5 rounded hover:bg-gray-800 shrink-0" title="Collapse/expand sidebar">
+  <aside id="admin-sidebar" class="flex flex-col bg-secondary text-gray-100 shrink-0 transition-all duration-200">
+    <div class="flex items-center justify-between px-4 h-14 bg-white border-b border-brand-border">
+      <a href="<?php echo site_url('admin'); ?>" class="sidebar-label overflow-hidden" title="Open S3">
+        <img src="<?php echo base_url('assets/brand/logo.png'); ?>" alt="Open S3" class="h-8 w-auto">
+      </a>
+      <button id="sidebar-toggle" type="button" class="p-1.5 rounded text-secondary hover:bg-brand-muted shrink-0" title="Collapse/expand sidebar">
         <i class="material-icons text-lg">menu</i>
       </button>
     </div>
@@ -27,7 +36,7 @@
       <?php foreach ($navItems as $item): ?>
         <?php
         $isActive = ($current_uri === $item['match']) || (strpos($current_uri, $item['match'] . '/') === 0);
-        $linkClass = $isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white';
+        $linkClass = $isActive ? 'bg-white/10 text-white border-l-4 border-primary' : 'text-gray-300 hover:bg-white/10 hover:text-white';
         ?>
         <a href="<?php echo site_url($item['href']); ?>"
            class="flex items-center gap-3 px-4 py-2.5 text-sm <?php echo $linkClass; ?>">
@@ -36,7 +45,7 @@
         </a>
       <?php endforeach; ?>
     </nav>
-    <div class="sidebar-footer border-t border-gray-800 p-4 text-xs text-gray-400">
+    <div class="sidebar-footer border-t border-white/10 p-4 text-xs text-gray-400">
       <div class="sidebar-email sidebar-label truncate mb-2" title="<?php echo htmlspecialchars($admin_email); ?>">
         <?php echo htmlspecialchars($admin_email); ?>
       </div>

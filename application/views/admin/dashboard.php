@@ -1,22 +1,22 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
-<h1 class="text-xl font-semibold text-gray-800 mb-6">Dashboard</h1>
+<h1 class="text-xl font-semibold text-secondary mb-6">Dashboard</h1>
 
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
   <div class="bg-white rounded-lg shadow p-5">
     <div class="text-xs text-gray-400 mb-1">Buckets</div>
-    <div class="text-2xl font-semibold text-gray-800"><?php echo (int) $bucketCount; ?></div>
+    <div class="text-2xl font-semibold text-secondary"><?php echo (int) $bucketCount; ?></div>
   </div>
   <div class="bg-white rounded-lg shadow p-5">
     <div class="text-xs text-gray-400 mb-1">Objects</div>
-    <div class="text-2xl font-semibold text-gray-800"><?php echo (int) $totalObjects; ?></div>
+    <div class="text-2xl font-semibold text-secondary"><?php echo (int) $totalObjects; ?></div>
   </div>
   <div class="bg-white rounded-lg shadow p-5">
     <div class="text-xs text-gray-400 mb-1">Total size</div>
-    <div class="text-2xl font-semibold text-gray-800"><?php echo s3_format_bytes($totalSize); ?></div>
+    <div class="text-2xl font-semibold text-secondary"><?php echo s3_format_bytes($totalSize); ?></div>
   </div>
   <div class="bg-white rounded-lg shadow p-5">
     <div class="text-xs text-gray-400 mb-1">Events pending/failed</div>
-    <div class="text-2xl font-semibold text-gray-800">
+    <div class="text-2xl font-semibold text-secondary">
       <?php echo (int) $eventCounts['pending']; ?> / <?php echo (int) $eventCounts['failed']; ?>
     </div>
   </div>
@@ -29,7 +29,7 @@
       <?php foreach ($eventCounts as $status => $count): ?>
         <li class="flex items-center justify-between">
           <span class="text-gray-600"><?php echo ucfirst($status); ?></span>
-          <span class="font-medium text-gray-800"><?php echo (int) $count; ?></span>
+          <span class="font-medium text-secondary"><?php echo (int) $count; ?></span>
         </li>
       <?php endforeach; ?>
     </ul>

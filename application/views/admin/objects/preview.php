@@ -8,7 +8,7 @@ $treeUrl = site_url('admin/buckets/' . rawurlencode($bucket['name']) . '/objects
   <a href="<?php echo $treeUrl; ?>" class="text-gray-400 hover:text-gray-700">
     <i class="material-icons align-middle">arrow_back</i>
   </a>
-  <h1 class="text-xl font-semibold text-gray-800 break-all"><?php echo htmlspecialchars($key); ?></h1>
+  <h1 class="text-xl font-semibold text-secondary break-all"><?php echo htmlspecialchars($key); ?></h1>
 </div>
 
 <div class="text-sm text-gray-500 mb-4 flex flex-wrap gap-x-6 gap-y-1">
@@ -20,7 +20,7 @@ $treeUrl = site_url('admin/buckets/' . rawurlencode($bucket['name']) . '/objects
 
 <div class="mb-4">
   <a href="<?php echo $downloadUrl; ?>"
-     class="inline-flex items-center gap-2 rounded bg-gray-900 text-white text-sm font-medium px-4 py-2 hover:bg-gray-800">
+     class="inline-flex items-center gap-2 rounded bg-primary text-white text-sm font-medium px-4 py-2 hover:opacity-90">
     <i class="material-icons text-lg">download</i>
     Download
   </a>

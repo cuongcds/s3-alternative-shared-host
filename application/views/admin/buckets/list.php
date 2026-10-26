@@ -1,8 +1,8 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 <div class="flex items-center justify-between mb-6">
-  <h1 class="text-xl font-semibold text-gray-800">Buckets</h1>
+  <h1 class="text-xl font-semibold text-secondary">Buckets</h1>
   <a href="<?php echo site_url('admin/buckets/new'); ?>"
-     class="inline-flex items-center gap-2 rounded bg-gray-900 text-white text-sm font-medium px-4 py-2 hover:bg-gray-800">
+     class="inline-flex items-center gap-2 rounded bg-primary text-white text-sm font-medium px-4 py-2 hover:opacity-90">
     <i class="material-icons text-lg">add</i>
     New bucket
   </a>
@@ -29,7 +29,7 @@
       <?php endif; ?>
       <?php foreach ($buckets as $b): ?>
         <tr class="hover:bg-gray-50">
-          <td class="px-4 py-3 font-medium text-gray-800">
+          <td class="px-4 py-3 font-medium text-secondary">
             <a href="<?php echo site_url('admin/buckets/' . $b['name'] . '/objects'); ?>" class="hover:underline">
               <?php echo htmlspecialchars($b['name']); ?>
             </a>
@@ -47,11 +47,11 @@
           <td class="px-4 py-3 text-gray-500"><?php echo htmlspecialchars($b['created_at']); ?></td>
           <td class="px-4 py-3 text-right space-x-3 whitespace-nowrap">
             <a href="<?php echo site_url('admin/buckets/' . $b['name'] . '/objects'); ?>"
-               class="text-gray-500 hover:text-gray-900" title="Browse objects">
+               class="text-gray-500 hover:text-primary" title="Browse objects">
               <i class="material-icons text-lg align-middle">folder_open</i>
             </a>
             <a href="<?php echo site_url('admin/buckets/' . $b['name'] . '/edit'); ?>"
-               class="text-gray-500 hover:text-gray-900" title="Edit config">
+               class="text-gray-500 hover:text-primary" title="Edit config">
               <i class="material-icons text-lg align-middle">settings</i>
             </a>
             <form method="post" action="<?php echo site_url('admin/buckets/' . $b['name'] . '/delete'); ?>"
